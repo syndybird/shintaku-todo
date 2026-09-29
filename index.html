@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除 / v1.18: 入力中は中央が✓保存 / v1.19: 引っぱって更新） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除 / v1.18: 入力中は中央が✓保存 / v1.19: 引っぱって更新 / v1.20: 更新ボタン→さがす） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -342,6 +342,24 @@
   .back-fab .ic { width: 26px; height: 26px; }
   .back-fab:active { transform: scale(.94); }
 
+  /* v1.20：さがす（言葉＋登録者で絞り込み） */
+  .search {
+    background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 12px;
+    margin-bottom: 12px; box-shadow: 0 8px 26px rgba(31,36,33,.08);
+  }
+  .sbox { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 14px; padding: 0 6px 0 12px; background: #fff; }
+  .sbox:focus-within { border-color: var(--ink); }
+  .sbox .ic { width: 20px; height: 20px; color: var(--ink-sub); flex: none; }
+  .sbox input { flex: 1; min-width: 0; border: 0; outline: none; font-size: 16px; padding: 12px 0; background: transparent; -webkit-appearance: none; appearance: none; }
+  .sbox input::-webkit-search-cancel-button, .sbox input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+  .sbox .x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-sub); font-size: 20px; }
+  .who { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .who button { font-size: 13px; font-weight: 800; padding: 7px 13px; border-radius: 999px; color: var(--ink-sub); background: #fff; border: 1.5px solid var(--line); }
+  .who button[aria-pressed="true"] { color: #fff; background: var(--ink); border-color: var(--ink); }
+  .sres { font-size: 12.5px; font-weight: 800; color: var(--ink-sub); margin-top: 10px; }
+  .tab[aria-pressed="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
+  .tab .fdot { position: absolute; top: 6px; left: calc(50% + 9px); width: 9px; height: 9px; border-radius: 50%; background: var(--c-orange); }
+
   /* v1.19：引っぱって更新。一覧のいちばん上で下に引いて離すと再読み込み */
   .ptr {
     position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 25;
@@ -384,6 +402,16 @@
     </header>
 
     <div class="zoomable">
+      <div class="search" id="search" hidden>
+        <div class="sbox">
+          <span class="ic" data-i="search"></span>
+          <input type="search" id="q" placeholder="例：フォワード、スタンチョン" enterkeyhint="search" autocomplete="off" aria-label="さがす言葉">
+          <button type="button" class="x" id="q-clear" aria-label="言葉を消す" hidden>×</button>
+        </div>
+        <div class="who" id="who" role="group" aria-label="登録者で絞り込み"></div>
+        <p class="sres" id="sres"></p>
+      </div>
+
       <section class="hero" aria-live="polite">
         <div class="hero-top">
           <div class="face"><span class="ic" data-i="clip" id="hero-ic"></span></div>
@@ -569,7 +597,7 @@
     <button class="tab" type="button" data-tab="done" aria-selected="false"><span class="ic" data-i="checkc"></span>完了</button>
     <button class="tab center" type="button" id="add" aria-label="やることを追加"><span class="dot"><span class="ic" id="add-ic" data-i="plus"></span></span><span id="add-lbl">追加</span></button>
     <button class="tab" type="button" data-tab="cow" aria-selected="false"><span class="ic" data-i="cow"></span>牛</button>
-    <button class="tab" type="button" id="reload"><span class="ic" data-i="reload"></span>更新</button>
+    <button class="tab" type="button" id="search-tab" aria-pressed="false"><span class="ic" data-i="search"></span>さがす<span class="fdot" id="search-dot" hidden></span></button>
   </div>
 </nav>
 
@@ -585,7 +613,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.19';
+  var APP_VERSION = 'v1.20';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -600,6 +628,7 @@
     checkc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/></svg>',
     plus:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     cow:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5c1.8 0 3.3.6 4.5 1.5M20.5 6.5c-1.8 0-3.3.6-4.5 1.5"/><path d="M8 8h8l1 4.5c0 4-2.3 7.5-5 7.5s-5-3.5-5-7.5z"/><ellipse cx="12" cy="16.3" rx="3.2" ry="2.2"/><path d="M9.8 11.5h.01M14.2 11.5h.01"/></svg>',
+    search:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>',
     star:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>',
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
     back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
@@ -619,7 +648,7 @@
   var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale', sort: 'shintaku_todo_sort' };
   var COLOR = { late: 'var(--c-red)', today: 'var(--c-orange)', soon: 'var(--c-green)', later: 'var(--c-green)', none: 'var(--c-gray)', done: 'var(--c-blue)' };
   var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null,
-                rems: [], remLoaded: false, remError: '', supOpen: {}, sort: 'star' };
+                rems: [], remLoaded: false, remError: '', supOpen: {}, sort: 'star', searchOpen: false, q: '', who: '' };
 
   /* ---------- サーバー通信 ---------- */
   function apiGet(){ return fetch(API_URL + '?api=list', { cache: 'no-store' }).then(parseRes); }
@@ -673,7 +702,7 @@
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var toastTimer;
   function toast(msg){ var t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.hidden = true; }, 2400); }
-  function setBusy(on){ state.busy += on ? 1 : -1; $('reload').classList.toggle('spin', state.busy > 0); }
+  function setBusy(on){ state.busy += on ? 1 : -1; }
   function show(id){
     ['scr-list', 'scr-edit', 'scr-del', 'scr-cow'].forEach(function(s){ $(s).hidden = s !== id; });
     // v1.8：下のバーはどの画面でも出す。入力中は「追加」を選択中に見せる
@@ -832,6 +861,41 @@
     $('hero-head').textContent = head; $('hero-lead').textContent = lead;
   }
 
+  /* ---------- さがす（v1.20） ---------- */
+  function filtering(){ return state.searchOpen && (!!state.q.trim() || !!state.who); }
+  function matchTodo(t){
+    if (state.who && (t.name || '') !== state.who) return false;
+    var words = state.q.trim().toLowerCase().split(/[\s　、,]+/).filter(Boolean);
+    if (!words.length) return true;
+    var hay = [t.text, t.name].concat((t.supplies || []).map(function(x){ return x.n; })).join(' ').toLowerCase();
+    return words.every(function(w){ return hay.indexOf(w) >= 0; });
+  }
+  function matchRem(r){
+    var words = state.q.trim().toLowerCase().split(/[\s　、,]+/).filter(Boolean);
+    var hay = (r.kind + ' ' + r.memo).toLowerCase();
+    return words.every(function(w){ return hay.indexOf(w) >= 0; });
+  }
+  function renderSearch(shownN){
+    var box = $('search');
+    box.hidden = !state.searchOpen || !$('scr-edit').hidden || !$('scr-cow').hidden || !$('scr-del').hidden;
+    $('search-tab').setAttribute('aria-pressed', state.searchOpen ? 'true' : 'false');
+    $('search-dot').hidden = !(filtering() && !state.searchOpen);
+    if (box.hidden) return;
+    $('q-clear').hidden = !state.q;
+    var who = $('who'); who.innerHTML = '';
+    who.hidden = state.tab === 'cow';
+    if (!who.hidden){
+      var names = []; state.items.forEach(function(t){ if (t.name && names.indexOf(t.name) < 0) names.push(t.name); });
+      [''].concat(names).forEach(function(n){
+        var b = el('button', null, n || '全員'); b.type = 'button';
+        b.setAttribute('aria-pressed', state.who === n ? 'true' : 'false');
+        b.addEventListener('click', function(){ state.who = n; render(); });
+        who.appendChild(b);
+      });
+    }
+    $('sres').textContent = filtering() ? (shownN ? shownN + '件 見つかりました' : '見つかりませんでした') : '言葉を入れるか、登録者を選んでください';
+  }
+
   function sortStar(a, b){
     var pa = a.priority || 0, pb = b.priority || 0;
     if (pa !== pb) return pb - pa;
@@ -848,7 +912,7 @@
     // ヘッダーのピルとホームの顔
     if (!state.loaded){
       document.body.setAttribute('data-loading', state.error ? '0' : '1');
-      setHero('var(--c-gray)', state.error ? 'alert' : 'hourglass', state.error ? 'つながりません' : '読み込み中', state.error ? '電波の良いところで「更新」を押してください' : 'リストを取ってきています');
+      setHero('var(--c-gray)', state.error ? 'alert' : 'hourglass', state.error ? 'つながりません' : '読み込み中', state.error ? '電波の良いところで画面を下に引っぱって更新してください' : 'リストを取ってきています');
       $('pill-t').textContent = state.error ? '未接続' : '読み込み中';
       $('sorter').hidden = true;
     } else {
@@ -869,9 +933,10 @@
     if (state.tab === 'cow'){ renderCow(); return; }
 
     var list = $('list'); list.innerHTML = '';
-    if (!state.loaded) return;
+    if (!state.loaded){ renderSearch(0); return; }
     if (state.error) list.appendChild(el('div', 'msg-error', state.error));
 
+    if (filtering()){ open = open.filter(matchTodo); done = done.filter(matchTodo); }
     // v1.14：並び順　★順＝★3→★2→★1→★なし（同じ★の中は目標日の近い順→登録順）／登録順＝シートの並び
     var buckets;
     if (state.sort === 'reg'){
@@ -883,6 +948,11 @@
     var shown = 0;
     if (state.tab !== 'done') buckets.forEach(function(b){ if (b[2].length){ list.appendChild(section(b[0], b[1], b[2])); shown += b[2].length; } });
     if (state.tab === 'done' && done.length){ list.appendChild(section('完了', COLOR.done, done)); shown += done.length; }
+    renderSearch(shown);
+    if (!shown && filtering()){
+      var ef = el('div', 'empty'); ef.appendChild(el('b', null, '見つかりませんでした')); ef.appendChild(document.createTextNode('言葉を変えるか、登録者を「全員」にしてみてください'));
+      list.appendChild(ef); return;
+    }
     if (!shown){
       var e = el('div', 'empty');
       if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode('左の丸をタップすると完了になります')); }
@@ -953,9 +1023,10 @@
     var past = state.rems.filter(function(r){ return !isUpcoming(r); }).reverse();
     if (!state.remLoaded){
       document.body.setAttribute('data-loading', state.remError ? '0' : '1');
-      setHero('var(--c-gray)', state.remError ? 'alert' : 'hourglass', state.remError ? 'つながりません' : '読み込み中', state.remError ? '電波の良いところで「更新」を押してください' : '牛の予定を取ってきています');
+      setHero('var(--c-gray)', state.remError ? 'alert' : 'hourglass', state.remError ? 'つながりません' : '読み込み中', state.remError ? '電波の良いところで画面を下に引っぱって更新してください' : '牛の予定を取ってきています');
       $('pill-t').textContent = '牛';
       if (state.remError) list.appendChild(el('div', 'msg-error', state.remError));
+      renderSearch(0);
       return;
     }
     document.body.setAttribute('data-loading', '0');
@@ -972,9 +1043,13 @@
       h.appendChild(bd); h.appendChild(document.createTextNode(arr.length + '件')); list.appendChild(h);
       var box = el('div', 'items'); arr.forEach(function(r){ box.appendChild(cowCard(r)); }); list.appendChild(box);
     }
+    if (filtering()){ upcoming = upcoming.filter(matchRem); past = past.filter(matchRem); }
+    renderSearch(upcoming.length + past.length);
     if (upcoming.length) sec('これから', 'var(--c-orange)', upcoming);
     if (past.length) sec('済み（2週間）', 'var(--c-gray)', past);
-    if (!upcoming.length && !past.length){
+    if (filtering() && !upcoming.length && !past.length){
+      var ef = el('div', 'empty'); ef.appendChild(el('b', null, '見つかりませんでした')); list.appendChild(ef);
+    } else if (!upcoming.length && !past.length){
       var e = el('div', 'empty'); e.appendChild(el('b', null, '牛のリマインドはまだありません'));
       e.appendChild(document.createTextNode('下のオレンジの＋ → 移動か運搬 → 日時 を選ぶだけで登録できます'));
       list.appendChild(e);
@@ -987,7 +1062,7 @@
     return apiPost('remList').then(function(rems){
       state.rems = rems; state.remLoaded = true; state.remError = '';
     }).catch(function(){
-      state.remError = '牛の予定を読み込めませんでした。電波の良いところで「更新」を押してください。';
+      state.remError = '牛の予定を読み込めませんでした。電波の良いところで画面を下に引っぱって更新してください。';
       if (!silent && state.remLoaded) toast('読み込めませんでした');
     }).then(function(){ setBusy(false); if (!$('scr-list').hidden) render(); });
   }
@@ -1085,7 +1160,7 @@
     return apiGet().then(function(items){
       state.items = items; state.loaded = true; state.error = '';
     }).catch(function(){
-      state.error = '読み込めませんでした。電波の良いところで「更新」を押してください。';
+      state.error = '読み込めませんでした。電波の良いところで画面を下に引っぱって更新してください。';
       if (!silent && state.loaded) toast('読み込めませんでした');
     }).then(function(){ setBusy(false); if (!$('scr-list').hidden) render(); });
   }
@@ -1259,7 +1334,17 @@
     var b = e.target.closest && e.target.closest('[data-sort]'); if (!b) return;
     state.sort = b.dataset.sort; setLS(KEY.sort, state.sort); render();
   });
-  $('reload').addEventListener('click', function(){ if (state.tab === 'cow') loadRems(false); else load(false); });
+  // v1.20：「さがす」を押すと検索欄を開く／もう一度押すと閉じて絞り込みを解除
+  $('search-tab').addEventListener('click', function(){
+    if (curScreen() !== 'scr-list'){ pushNav(); state.editing = null; show('scr-list'); state.searchOpen = false; }
+    state.searchOpen = !state.searchOpen;
+    if (!state.searchOpen){ state.q = ''; state.who = ''; $('q').value = ''; }
+    render();
+    if (state.searchOpen){ $('scroller').scrollTop = 0; setTimeout(function(){ $('q').focus(); }, 50); }
+  });
+  $('q').addEventListener('input', function(){ state.q = $('q').value; render(); });
+  $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); $('q').blur(); } });
+  $('q-clear').addEventListener('click', function(){ state.q = ''; $('q').value = ''; render(); $('q').focus(); });
   $('scr-cow').addEventListener('submit', submitCow);
 
   $('c-at').addEventListener('input', function(){ showPicked(); cErr(''); });
