@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -240,14 +240,14 @@
   .tab[aria-selected="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
   .tab:active { transform: scale(.94); }
   .tab .num { position: absolute; top: 2px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 10.5px; line-height: 18px; color: #fff; background: var(--c-red); }
-  .tab.center { flex: none; width: 80px; }
-  .tab.center .dot {
-    width: 64px; height: 64px; margin-top: -28px; margin-bottom: 1px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--ink); color: #fff; box-shadow: 0 8px 20px rgba(31,36,33,.25);
-  }
-  .tab.center .dot .ic { width: 30px; height: 30px; }
+  /* v1.7：追加ボタンもほかのボタンと同じ大きさ・同じ高さに（黒い丸に＋で目印だけ残す） */
   .tab.center { color: var(--ink); }
+  .tab.center .dot {
+    width: 25px; height: 25px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ink); color: #fff;
+  }
+  .tab.center .dot .ic { width: 17px; height: 17px; }
   .tab.spin .ic { animation: heroFlip 1.2s ease-in-out infinite; }
 
   /* ===== 牛のリマインド（v1.3） ===== */
@@ -474,7 +474,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.6';
+  var APP_VERSION = 'v1.7';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
