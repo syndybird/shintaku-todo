@@ -382,9 +382,9 @@
   .sbox input { flex: 1; min-width: 0; border: 0; outline: none; font-size: 16px; padding: 12px 0; background: transparent; -webkit-appearance: none; appearance: none; }
   .sbox input::-webkit-search-cancel-button, .sbox input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
   .sbox .x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-sub); font-size: 20px; }
-  .who { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .who { display: flex; gap: 5px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .who::-webkit-scrollbar { display: none; }
-  .who button { flex: none; font-size: 13px; font-weight: 800; padding: 7px 13px; border-radius: 999px; color: var(--ink-sub); background: #fff; border: 1.5px solid var(--line); }
+  .who button { flex: none; font-size: 13px; font-weight: 800; padding: 7px 10px; border-radius: 999px; color: var(--ink-sub); background: #fff; border: 1.5px solid var(--line); }
   .who button[aria-pressed="true"] { color: #fff; background: var(--ink); border-color: var(--ink); }
   .sres { font-size: 12px; font-weight: 800; color: var(--ink); margin: 8px 4px 0; }
   .tab[aria-pressed="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
@@ -616,7 +616,7 @@
     <input type="search" id="q" placeholder="例：フォワード、スタンチョン" enterkeyhint="search" autocomplete="off" aria-label="さがす言葉">
     <button type="button" class="x" id="q-clear" aria-label="言葉を消す" hidden>×</button>
   </div>
-  <div class="who" id="who" role="group" aria-label="登録者で絞り込み"></div>
+  <div class="who" id="who" role="group" aria-label="よく使われている言葉"></div>
   <p class="sres" id="sres" aria-live="polite"></p>
 </div>
 
@@ -645,7 +645,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.23';
+  var APP_VERSION = 'v1.24';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -908,6 +908,31 @@
     var hay = (r.kind + ' ' + r.memo).toLowerCase();
     return words.every(function(w){ return hay.indexOf(w) >= 0; });
   }
+  // 全文から単語を取り出して、使われている件数の多い順に上位n個を返す
+  var STOP_WORDS = ['する','こと','もの','ため','よう','これ','それ','あれ','など','ところ','とき','さん'];
+  var SEG = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter('ja', { granularity: 'word' }) : null;
+  function splitWords(txt){
+    var out = [];
+    if (SEG){
+      Array.from(SEG.segment(txt)).forEach(function(g){ if (g.isWordLike) out.push(g.segment); });
+    } else {
+      out = txt.match(/[\u4E00-\u9FFF々〆ヶ]+|[\u30A0-\u30FFー]+|[A-Za-z0-9]+|[\u3040-\u309F]+/g) || [];
+    }
+    return out.filter(function(w){
+      return w.length >= 2 && /[\u4E00-\u9FFF々\u30A0-\u30FFA-Za-z]/.test(w) && !/^[\u30FC]+$/.test(w) && STOP_WORDS.indexOf(w) < 0;
+    });
+  }
+  function topWords(texts, n){
+    var cnt = {}, first = {}, i = 0;
+    texts.forEach(function(txt){
+      var seen = {};
+      splitWords(String(txt || '').toLowerCase()).forEach(function(w){
+        if (seen[w]) return; seen[w] = 1;   // 1件の中で何度出ても1回と数える
+        cnt[w] = (cnt[w] || 0) + 1; if (!(w in first)) first[w] = i++;
+      });
+    });
+    return Object.keys(cnt).sort(function(a, b){ return cnt[b] - cnt[a] || first[a] - first[b]; }).slice(0, n);
+  }
   function renderSearch(shownN){
     var box = $('search');
     box.hidden = !state.searchOpen || !$('scr-edit').hidden || !$('scr-cow').hidden || !$('scr-del').hidden;
@@ -916,18 +941,21 @@
     document.body.classList.toggle('searching', !box.hidden);
     if (box.hidden) return;
     $('q-clear').hidden = !state.q;
+    // v1.24：候補は人名ではなく「よく使われている言葉 TOP5」。押すとその言葉でさがす（もう一度押すと解除）
     var who = $('who'); who.innerHTML = '';
-    who.hidden = state.tab === 'cow';
-    if (!who.hidden){
-      var names = []; state.items.forEach(function(t){ if (t.name && names.indexOf(t.name) < 0) names.push(t.name); });
-      [''].concat(names).forEach(function(n){
-        var b = el('button', null, n || '全員'); b.type = 'button';
-        b.setAttribute('aria-pressed', state.who === n ? 'true' : 'false');
-        b.addEventListener('click', function(){ state.who = n; render(); });
-        who.appendChild(b);
-      });
-    }
-    $('sres').textContent = filtering() ? (shownN ? shownN + '件 見つかりました' : '見つかりませんでした') : '言葉を入れるか、登録者を選んでください';
+    var texts = state.tab === 'cow'
+      ? state.rems.map(function(r){ return r.memo || ''; })
+      : state.items.map(function(t){ return [t.text].concat((t.supplies || []).map(function(x){ return x.n; })).join(' '); });
+    var words = topWords(texts, 5);
+    who.hidden = !words.length;
+    words.forEach(function(w){
+      var b = el('button', null, w); b.type = 'button';
+      var on = state.q.trim() === w;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.addEventListener('click', function(){ state.q = on ? '' : w; $('q').value = state.q; render(); });
+      who.appendChild(b);
+    });
+    $('sres').textContent = filtering() ? (shownN ? shownN + '件 見つかりました' : '見つかりませんでした') : '言葉を入れるか、よく使う言葉を選んでください';
     document.body.style.setProperty('--sh', box.offsetHeight + 'px');
   }
   // キーボードの高さを測って、検索欄をキーボードの上に出す
@@ -1388,11 +1416,11 @@
     render();
     if (state.searchOpen){ $('scroller').scrollTop = 0; setTimeout(function(){ $('q').focus(); }, 50); }
   });
-  // v1.22：下にスクロールしたら右下に「いちばん上へ」ボタンを出す
+  // v1.22：スクロールしたら右下に「いちばん上へ」ボタンを出す
   (function(){
     var sc = $('scroller'), btn = $('top-btn'), on = false;
     function upd(){
-      var v = sc.scrollTop > Math.max(240, sc.clientHeight * 0.5);
+      var v = sc.scrollTop > 8;   // v1.24：スクロールを始めたらすぐ出す
       if (v !== on){ on = v; btn.classList.toggle('on', v); btn.tabIndex = v ? 0 : -1; }
     }
     sc.addEventListener('scroll', upd, { passive: true });
