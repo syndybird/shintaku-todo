@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.1 - 伸託やることリスト（v1.1: 上のバーを固定しない・下のバーはスクロール中に隠す） -->
+<!-- SHINTAKU ToDo アプリ版 v1.2 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れるボタン） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認。下のバーは「やること・完了・[中央＋追加]・すべて・更新」 -->
@@ -157,6 +157,17 @@
   .empty { margin-top: 18px; padding: 28px 18px; background: var(--card); border: 1px dashed #d8d7cf; border-radius: 18px; text-align: center; color: var(--ink-sub); font-size: 13.5px; line-height: 1.7; }
   .empty b { display: block; color: var(--ink); font-size: 15.5px; }
   .msg-error { margin-top: 14px; font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border-radius: 14px; color: #b3372d; background: #fdf0ee; border: 1px solid #f3c9c3; }
+  /* アプリとして入れる案内（v1.2）。Android Chrome で入れられる時だけ出す */
+  .install {
+    display: flex; align-items: center; gap: 12px; margin-top: 12px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px 12px 12px 14px;
+    box-shadow: 0 4px 14px rgba(31,36,33,.05);
+  }
+  .install img { width: 40px; height: 40px; flex: none; border-radius: 10px; }
+  .install .t { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink-sub); }
+  .install .t b { display: block; font-size: 14.5px; color: var(--ink); }
+  .install button { flex: none; padding: 10px 14px; font-size: 14px; font-weight: 800; color: #fff; background: var(--ink); border: 0; border-radius: 12px; }
+  .install .x { background: transparent; color: var(--ink-sub); padding: 8px; font-size: 18px; }
   .version { font-size: 10.5px; color: #c4c3bb; margin: 22px 0 6px; text-align: center; }
 
   /* ===== 入力画面 ===== */
@@ -268,6 +279,13 @@
         <div class="counts" id="counts" hidden></div>
       </section>
 
+      <div class="install" id="install" hidden>
+        <img src="icon-192.png" alt="">
+        <div class="t" id="install-t"><b>アプリとして入れる</b>ホーム画面から全画面で開けます</div>
+        <button type="button" id="install-btn">入れる</button>
+        <button type="button" class="x" id="install-x" aria-label="閉じる">×</button>
+      </div>
+
       <div id="list"></div>
       <p class="version" id="ver"></p>
     </div>
@@ -366,7 +384,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.1';
+  var APP_VERSION = 'v1.2';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -737,6 +755,29 @@
   render();
   load(false);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
+
+  /* ---------- アプリとして入れる（v1.2） ----------
+     Android の Chrome：入れられる状態になると beforeinstallprompt が来る → 「入れる」ボタンで入れる。
+     LINEの中で開いた時：アプリとして入れられないので、ブラウザで開き直す案内を出す。 */
+  var installEvt = null;
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  function hideInstall(){ $('install').hidden = true; }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); installEvt = e;
+    if (!standalone && getLS('shintaku_todo_install_x') !== '1') $('install').hidden = false;
+  });
+  window.addEventListener('appinstalled', function(){ hideInstall(); toast('アプリとして入れました'); });
+  $('install-btn').addEventListener('click', function(){
+    if (!installEvt) { hideInstall(); return; }
+    installEvt.prompt();
+    installEvt.userChoice.then(function(){ installEvt = null; hideInstall(); });
+  });
+  $('install-x').addEventListener('click', function(){ setLS('shintaku_todo_install_x', '1'); hideInstall(); });
+  if (!standalone && /\bLine\//i.test(navigator.userAgent)){
+    $('install-t').innerHTML = '<b>ブラウザで開くとアプリにできます</b>右下（右上）のメニューから「ブラウザで開く」を選んでください';
+    $('install-btn').hidden = true;
+    $('install').hidden = false;
+  }
 })();
 </script>
 </body>
