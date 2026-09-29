@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除 / v1.18: 入力中は中央が✓保存） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -552,7 +552,7 @@
     <span class="bump" aria-hidden="true"></span>
     <button class="tab" type="button" data-tab="open" aria-selected="true"><span class="ic" data-i="list"></span>やること<span class="num" id="n-late" hidden></span></button>
     <button class="tab" type="button" data-tab="done" aria-selected="false"><span class="ic" data-i="checkc"></span>完了</button>
-    <button class="tab center" type="button" id="add" aria-label="やることを追加"><span class="dot"><span class="ic" data-i="plus"></span></span>追加</button>
+    <button class="tab center" type="button" id="add" aria-label="やることを追加"><span class="dot"><span class="ic" id="add-ic" data-i="plus"></span></span><span id="add-lbl">追加</span></button>
     <button class="tab" type="button" data-tab="cow" aria-selected="false"><span class="ic" data-i="cow"></span>牛</button>
     <button class="tab" type="button" id="reload"><span class="ic" data-i="reload"></span>更新</button>
   </div>
@@ -569,7 +569,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.17';
+  var APP_VERSION = 'v1.18';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -673,10 +673,17 @@
     $('scroller').scrollTop = 0;
   }
   // 中央の＋：牛の画面ではオレンジ（牛の予定を追加）、それ以外は緑（やることを追加）
+  // v1.18：入力画面（やること・牛）では中央が「✓ 保存」になり、押すと保存
   function setCenter(){
-    var cow = state.tab === 'cow';
-    $('add').classList.toggle('cow', cow);
-    $('add').setAttribute('aria-label', cow ? '牛の予定を追加' : 'やることを追加');
+    var scr = curScreen();
+    var saving = scr === 'scr-edit' || scr === 'scr-cow';
+    var cow = scr === 'scr-cow' || (scr === 'scr-list' && state.tab === 'cow');
+    var b = $('add');
+    b.classList.toggle('cow', cow);
+    b.classList.toggle('saving', saving);
+    $('add-ic').innerHTML = ICONS[saving ? 'tick' : 'plus'];
+    $('add-lbl').textContent = saving ? '保存' : '追加';
+    b.setAttribute('aria-label', saving ? (cow ? '牛の予定を登録する' : 'やることを保存する') : (cow ? '牛の予定を追加' : 'やることを追加'));
   }
 
   /* ---------- 戻る（v1.11）：画面やタブを切り替えるたびに、ひとつ前を覚えておく ---------- */
@@ -1181,7 +1188,12 @@
       if (state.tab === 'cow') loadRems(true);
     });
   });
-  $('add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });   // v1.11：中央の＋は画面に合わせて
+  $('add').addEventListener('click', function(){
+    var scr = curScreen();
+    if (scr === 'scr-edit'){ $('scr-edit').requestSubmit(); return; }   // v1.18：入力中は保存
+    if (scr === 'scr-cow'){ $('scr-cow').requestSubmit(); return; }
+    if (state.tab === 'cow') openCow(); else openEdit(null);            // v1.11：中央の＋は画面に合わせて
+  });
   $('back-btn').addEventListener('click', goBack);
   $('f-stars').addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('[data-p]'); if (!b) return;
