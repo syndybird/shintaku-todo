@@ -356,38 +356,37 @@
   .top-fab.on { opacity: .92; transform: none; pointer-events: auto; }
   .top-fab.on:active { transform: scale(.94); }
   .top-fab .ic { width: 26px; height: 26px; }
-  body.searching .top-fab { bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 116px + var(--sh, 0px)); }
   body.kb .top-fab { opacity: 0; pointer-events: none; }
 
   /* v1.20：さがす（言葉＋登録者で絞り込み） */
-  /* v1.21：検索欄は一覧の中ではなく、下バーのすぐ上に浮かせて出す（メニューと同じ層） */
+  /* v1.21：検索欄は一覧の中ではなく、メニューと同じ層に浮かせて出す
+     v1.23：画面の上に移動。透過率75%のすりガラス */
   .search {
     position: fixed; z-index: 29; left: 50%; transform: translateX(-50%);
     width: calc(100% - 20px); max-width: 440px;
-    bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 104px);
-    background: rgba(255, 255, 255, .80);
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    background: rgba(255, 255, 255, .25);
     -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
     border-radius: 24px; padding: 10px 10px 10px;
     box-shadow: 0 8px 28px rgba(31,36,33,.18);
   }
-  /* キーボードが出ている間は、キーボードのすぐ上に持ち上げる */
-  body.kb .search { bottom: calc(var(--kb, 0px) + 8px); }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .search { background: rgba(255, 255, 255, .96); }
+    .search { background: rgba(255, 255, 255, .92); }
   }
-  body.searching #scroller { padding-bottom: calc(var(--sh, 0px) + 110px + env(safe-area-inset-bottom, 0px)); }
-  body.searching .toast { bottom: calc(var(--sh, 0px) + 110px + env(safe-area-inset-bottom, 0px)); }
+  /* 開いている間は、一覧を検索欄の下から始める */
+  body.searching #scroller { padding-top: calc(var(--sh, 0px) + 8px); }
+  body.searching .ptr { top: calc(env(safe-area-inset-top, 0px) + var(--sh, 0px) + 14px); }
   .sbox { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 14px; padding: 0 6px 0 12px; background: #fff; }
   .sbox:focus-within { border-color: var(--ink); }
   .sbox .ic { width: 20px; height: 20px; color: var(--ink-sub); flex: none; }
   .sbox input { flex: 1; min-width: 0; border: 0; outline: none; font-size: 16px; padding: 12px 0; background: transparent; -webkit-appearance: none; appearance: none; }
   .sbox input::-webkit-search-cancel-button, .sbox input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
   .sbox .x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-sub); font-size: 20px; }
-  .who { display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .who { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .who::-webkit-scrollbar { display: none; }
   .who button { flex: none; font-size: 13px; font-weight: 800; padding: 7px 13px; border-radius: 999px; color: var(--ink-sub); background: #fff; border: 1.5px solid var(--line); }
   .who button[aria-pressed="true"] { color: #fff; background: var(--ink); border-color: var(--ink); }
-  .sres { font-size: 12px; font-weight: 800; color: var(--ink-sub); margin: 0 4px 6px; }
+  .sres { font-size: 12px; font-weight: 800; color: var(--ink); margin: 8px 4px 0; }
   .tab[aria-pressed="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
   .tab .fdot { position: absolute; top: 6px; left: calc(50% + 9px); width: 9px; height: 9px; border-radius: 50%; background: var(--c-orange); }
 
@@ -610,15 +609,15 @@
 
 </div><!-- /#scroller -->
 
-<!-- ===== さがす（下バーのすぐ上に浮かぶ） ===== -->
+<!-- ===== さがす（画面の上に浮かぶ） ===== -->
 <div class="search" id="search" role="search" hidden>
-  <p class="sres" id="sres" aria-live="polite"></p>
-  <div class="who" id="who" role="group" aria-label="登録者で絞り込み"></div>
   <div class="sbox">
     <span class="ic" data-i="search"></span>
     <input type="search" id="q" placeholder="例：フォワード、スタンチョン" enterkeyhint="search" autocomplete="off" aria-label="さがす言葉">
     <button type="button" class="x" id="q-clear" aria-label="言葉を消す" hidden>×</button>
   </div>
+  <div class="who" id="who" role="group" aria-label="登録者で絞り込み"></div>
+  <p class="sres" id="sres" aria-live="polite"></p>
 </div>
 
 <!-- ===== 下バー ===== -->
@@ -646,7 +645,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.22';
+  var APP_VERSION = 'v1.23';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
