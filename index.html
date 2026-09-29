@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -223,6 +223,7 @@
     -webkit-appearance: none; appearance: none; transition: .15s;
   }
   .inp:focus { border-color: var(--ink); }
+  .inp[readonly] { background: var(--bg); color: var(--ink-sub); border-color: var(--line); }   /* v1.16：登録済みの登録者は変更不可 */
   textarea.inp { min-height: 96px; resize: vertical; line-height: 1.55; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   @media (max-width: 480px) { .row2 { grid-template-columns: 1fr; gap: 0; } }   /* スマホは日付を縦に並べて見切れを防ぐ */
@@ -450,7 +451,7 @@
           </div>
         </div>
         <div class="field">
-          <label for="f-name">登録者<small>任意・次から自動で入ります</small></label>
+          <label for="f-name">登録者<small id="f-name-note">任意・次から自動で入ります</small></label>
           <input class="inp" type="text" id="f-name" maxlength="30" placeholder="名前">
         </div>
 
@@ -568,7 +569,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.15';
+  var APP_VERSION = 'v1.16';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -1119,6 +1120,9 @@
     $('f-date').value = t && t.date ? t.date : ymd(new Date());
     $('f-due').value = t ? (t.due || '') : '';
     $('f-name').value = t ? t.name : getLS(KEY.name);
+    var nameLocked = !!(t && t.name);   // v1.16：登録済みの項目は登録者を変えられない
+    $('f-name').readOnly = nameLocked;
+    $('f-name-note').textContent = nameLocked ? '登録済みのため変更できません' : (t ? '空欄なので入れられます' : '任意・次から自動で入ります');
     formSup = t && t.supplies ? t.supplies.map(function(x){ return { n: x.n, ok: !!x.ok }; }) : [];
     setFormStars(t ? (t.priority || 0) : 0);
     $('f-sup').value = ''; renderSupEdit(); showErr('');
@@ -1133,7 +1137,7 @@
     var text = $('f-text').value.trim();
     if (!text){ showErr('内容を入力してください'); $('f-text').focus(); return; }
     takeSupInput();
-    var name = $('f-name').value.trim(); if (name) setLS(KEY.name, name);
+    var name = $('f-name').value.trim(); if (name && !$('f-name').readOnly) setLS(KEY.name, name);
     var payload = { text: text, date: $('f-date').value || ymd(new Date()), due: $('f-due').value || '', name: name,
       supplies: formSup.map(function(x){ return { n: x.n, ok: !!x.ok }; }), priority: formStars };
     var editing = state.editing;
