@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -326,8 +326,10 @@
 <form id="scr-edit" hidden autocomplete="off" novalidate>
   <div class="wrap">
     <header class="appbar">
-      <button class="backBtn" type="button" id="back">← 戻る</button>
-      <span class="pill" style="--c: var(--ink-sub)" id="edit-pill">追加</span>
+      <div class="brand">
+        <img class="logo" src="logo.png" alt="">
+        <div class="names"><div class="org">伸託やることリスト</div><div class="user">SHINTAKU ToDo</div></div>
+      </div>
     </header>
     <div class="zoomable">
       <div class="form-card">
@@ -368,7 +370,6 @@
         </div>
 
         <button class="btn-primary" id="save" type="submit">保存する</button>
-        <button class="btn-secondary" id="cancel" type="button">やめる</button>
         <button class="btn-danger-o" id="del" type="button" hidden>このやることを削除</button>
       </div>
     </div>
@@ -379,8 +380,10 @@
 <div id="scr-del" hidden>
   <div class="wrap">
     <header class="appbar">
-      <button class="backBtn" type="button" id="del-back">← 戻る</button>
-      <span class="pill" style="--c: var(--c-red)">削除</span>
+      <div class="brand">
+        <img class="logo" src="logo.png" alt="">
+        <div class="names"><div class="org">伸託やることリスト</div><div class="user">SHINTAKU ToDo</div></div>
+      </div>
     </header>
     <div class="zoomable">
       <div class="form-card">
@@ -398,8 +401,10 @@
 <form id="scr-cow" hidden autocomplete="off" novalidate>
   <div class="wrap">
     <header class="appbar">
-      <button class="backBtn" type="button" id="cow-back">← 戻る</button>
-      <span class="pill" style="--c: var(--c-orange)">牛のリマインド</span>
+      <div class="brand">
+        <img class="logo" src="logo.png" alt="">
+        <div class="names"><div class="org">伸託やることリスト</div><div class="user">SHINTAKU ToDo</div></div>
+      </div>
     </header>
     <div class="zoomable">
       <div class="form-card">
@@ -448,7 +453,6 @@
         </div>
 
         <button class="btn-primary" id="c-save" type="submit">登録する</button>
-        <button class="btn-secondary" id="c-cancel" type="button">やめる</button>
       </div>
     </div>
   </div>
@@ -474,7 +478,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.7';
+  var APP_VERSION = 'v1.8';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -562,7 +566,10 @@
   function setBusy(on){ state.busy += on ? 1 : -1; $('reload').classList.toggle('spin', state.busy > 0); }
   function show(id){
     ['scr-list', 'scr-edit', 'scr-del', 'scr-cow'].forEach(function(s){ $(s).hidden = s !== id; });
-    $('tabbar').hidden = id !== 'scr-list';
+    // v1.8：下のバーはどの画面でも出す。入力中は「追加」を選択中に見せる
+    var inForm = id !== 'scr-list';
+    $('add').setAttribute('aria-selected', inForm ? 'true' : 'false');
+    document.querySelectorAll('.tab[data-tab]').forEach(function(b){ if (inForm) b.setAttribute('aria-selected', 'false'); });
     window.scrollTo(0, 0);
   }
   function msgOf(err, fallback){ var m = err && err.message ? String(err.message) : ''; return /[ぁ-んァ-ン一-龥]/.test(m) ? m : fallback; }
@@ -934,7 +941,6 @@
     state.editing = t || null;
     $('edit-title').textContent = t ? 'やることを編集' : 'やることを追加';
     $('edit-sub').textContent = t ? '直したら「保存する」' : '内容と目標日を入れて「保存する」';
-    $('edit-pill').textContent = t ? '編集' : '追加';
     $('f-text').value = t ? t.text : '';
     $('f-date').value = t && t.date ? t.date : ymd(new Date());
     $('f-due').value = t ? (t.due || '') : '';
@@ -988,15 +994,17 @@
   /* ---------- イベント ---------- */
   document.querySelectorAll('.tab[data-tab]').forEach(function(b){
     b.addEventListener('click', function(){
-      state.tab = b.dataset.tab; setLS(KEY.tab, state.tab); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      var fromForm = $('scr-list').hidden;
+      state.tab = b.dataset.tab; setLS(KEY.tab, state.tab);
+      if (fromForm){ state.editing = null; show('scr-list'); }   // 入力中にタブを押したら、その一覧へ（戻るボタンの代わり）
+      render(); window.scrollTo({ top: 0, behavior: fromForm ? 'auto' : 'smooth' });
       if (state.tab === 'cow') loadRems(true);
     });
   });
   $('add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });
   $('reload').addEventListener('click', function(){ if (state.tab === 'cow') loadRems(false); else load(false); });
   $('scr-cow').addEventListener('submit', submitCow);
-  $('cow-back').addEventListener('click', function(){ show('scr-list'); render(); });
-  $('c-cancel').addEventListener('click', function(){ show('scr-list'); render(); });
+
   $('c-at').addEventListener('input', function(){ showPicked(); cErr(''); });
   $('c-kinds').addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('.kind-btn'); if (!b) return;
@@ -1011,12 +1019,11 @@
   });
   $('c-time').addEventListener('input', function(){ tTime = $('c-time').value; showPicked(); cErr(''); });
   $('scr-edit').addEventListener('submit', submit);
-  $('back').addEventListener('click', backToList);
-  $('cancel').addEventListener('click', backToList);
+
   $('del').addEventListener('click', askDelete);
   $('del-yes').addEventListener('click', doDelete);
   $('del-no').addEventListener('click', function(){ show('scr-edit'); });
-  $('del-back').addEventListener('click', function(){ show('scr-edit'); });
+
   $('quick').addEventListener('click', function(e){ var q = e.target && e.target.getAttribute('data-q'); if (q != null) $('f-due').value = quickDate(q); });
   $('sup-add').addEventListener('click', function(){ takeSupInput(); $('f-sup').focus(); });
   $('f-sup').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229){ e.preventDefault(); takeSupInput(); } });
