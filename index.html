@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.2 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れるボタン） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
-<!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認。下のバーは「やること・完了・[中央＋追加]・すべて・更新」 -->
+<!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
 <!-- データ:   GAS WebアプリをAPIとして使う（GET ?api=list / POST {fn,args}）。保存先はスプレッドシート「ToDo」シート。 -->
 <html lang="ja" data-fontscale="中">
 <head>
@@ -246,6 +246,29 @@
   .tab.center { color: var(--ink); }
   .tab.spin .ic { animation: heroFlip 1.2s ease-in-out infinite; }
 
+  /* ===== 牛のリマインド（v1.3） ===== */
+  .cow-item { align-items: center; }
+  .cow-when { flex: none; width: 74px; text-align: center; }
+  .cow-when .d { display: block; font-size: 13px; font-weight: 800; color: var(--ink-sub); }
+  .cow-when .t { display: block; font-size: 22px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .cow-item.past .cow-when .t { color: #a3a8a4; }
+  .cow-memo { font-size: 15px; font-weight: 700; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; }
+  .cow-item.past .cow-memo { color: var(--ink-sub); font-weight: 500; }
+  .cow-del { flex: none; align-self: flex-start; padding: 7px 10px; font-size: 12.5px; font-weight: 800; color: var(--ink-sub); background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+  .cow-del.armed { color: #fff; background: var(--c-red); border-color: var(--c-red); }
+  .note { font-size: 12px; color: var(--ink-sub); text-align: center; margin-top: 10px; }
+  .kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kind-btn, .when-btn {
+    padding: 16px 8px; font-size: 17px; font-weight: 800; color: var(--ink); background: #fff;
+    border: 2px solid var(--line); border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .kind-btn .ic { width: 24px; height: 24px; }
+  .kind-btn[aria-pressed="true"], .when-btn[aria-pressed="true"] { color: #fff; background: var(--ink); border-color: var(--ink); }
+  .whens { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .when-btn { padding: 12px 6px; font-size: 14.5px; flex-direction: column; gap: 0; line-height: 1.35; }
+  .when-btn small { font-size: 11.5px; font-weight: 700; opacity: .75; }
+  .when-picked { margin-top: 10px; font-size: 14px; font-weight: 800; text-align: center; color: var(--ink); }
+
   /* トースト */
   .toast {
     position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
@@ -364,13 +387,56 @@
   </div>
 </div>
 
+<!-- ===== 牛のリマインド登録（v1.3） ===== -->
+<form id="scr-cow" hidden autocomplete="off" novalidate>
+  <div class="wrap">
+    <header class="appbar">
+      <button class="backBtn" type="button" id="cow-back">← 戻る</button>
+      <span class="pill" style="--c: var(--c-orange)">牛のリマインド</span>
+    </header>
+    <div class="zoomable">
+      <div class="form-card">
+        <p class="form-title">牛のリマインドを登録</p>
+        <p class="form-sub">選んだ日時に、やましんのLINEへお知らせします</p>
+        <div class="form-err" id="c-err" hidden></div>
+
+        <div class="field">
+          <span class="lbl">何をする？</span>
+          <div class="kinds" id="c-kinds">
+            <button type="button" class="kind-btn" data-kind="移動" aria-pressed="true"><span class="ic" data-i="move"></span>移動</button>
+            <button type="button" class="kind-btn" data-kind="運搬" aria-pressed="false"><span class="ic" data-i="truck"></span>運搬</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="lbl">いつ知らせる？</span>
+          <div class="whens" id="c-whens"></div>
+          <div class="field" style="margin:12px 0 0">
+            <label for="c-at">日時を自分で選ぶ</label>
+            <input class="inp" type="datetime-local" id="c-at" step="300">
+          </div>
+          <p class="when-picked" id="c-picked"></p>
+        </div>
+
+        <div class="field">
+          <label for="c-memo">メモ<small>任意</small></label>
+          <input class="inp" type="text" id="c-memo" maxlength="200" placeholder="例：2号舎 → 5号舎 10頭">
+        </div>
+
+        <button class="btn-primary" id="c-save" type="submit">登録する</button>
+        <button class="btn-secondary" id="c-cancel" type="button">やめる</button>
+      </div>
+    </div>
+  </div>
+</form>
+
 <!-- ===== 下バー ===== -->
 <nav class="tabbar" id="tabbar" aria-label="メニュー">
   <div class="inner">
     <button class="tab" type="button" data-tab="open" aria-selected="true"><span class="ic" data-i="list"></span>やること<span class="num" id="n-late" hidden></span></button>
     <button class="tab" type="button" data-tab="done" aria-selected="false"><span class="ic" data-i="checkc"></span>完了</button>
     <button class="tab center" type="button" id="add" aria-label="やることを追加"><span class="dot"><span class="ic" data-i="plus"></span></span>追加</button>
-    <button class="tab" type="button" data-tab="all" aria-selected="false"><span class="ic" data-i="stack"></span>すべて</button>
+    <button class="tab" type="button" data-tab="cow" aria-selected="false"><span class="ic" data-i="cow"></span>牛</button>
     <button class="tab" type="button" id="reload"><span class="ic" data-i="reload"></span>更新</button>
   </div>
 </nav>
@@ -384,7 +450,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.2';
+  var APP_VERSION = 'v1.3';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -398,6 +464,9 @@
     list:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="17.5" rx="2.5"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/></svg>',
     checkc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/></svg>',
     plus:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    cow:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5c1.8 0 3.3.6 4.5 1.5M20.5 6.5c-1.8 0-3.3.6-4.5 1.5"/><path d="M8 8h8l1 4.5c0 4-2.3 7.5-5 7.5s-5-3.5-5-7.5z"/><ellipse cx="12" cy="16.3" rx="3.2" ry="2.2"/><path d="M9.8 11.5h.01M14.2 11.5h.01"/></svg>',
+    move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
+    truck:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>',
     stack:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
     reload:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>',
     tick:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
@@ -411,7 +480,8 @@
   var FS = ['小','中','大'];
   var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale' };
   var COLOR = { late: 'var(--c-red)', today: 'var(--c-orange)', soon: 'var(--c-green)', later: 'var(--c-green)', none: 'var(--c-gray)', done: 'var(--c-blue)' };
-  var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null };
+  var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null,
+                rems: [], remLoaded: false, remError: '' };
 
   /* ---------- サーバー通信 ---------- */
   function apiGet(){ return fetch(API_URL + '?api=list', { cache: 'no-store' }).then(parseRes); }
@@ -467,7 +537,7 @@
   function toast(msg){ var t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.hidden = true; }, 2400); }
   function setBusy(on){ state.busy += on ? 1 : -1; $('reload').classList.toggle('spin', state.busy > 0); }
   function show(id){
-    ['scr-list', 'scr-edit', 'scr-del'].forEach(function(s){ $(s).hidden = s !== id; });
+    ['scr-list', 'scr-edit', 'scr-del', 'scr-cow'].forEach(function(s){ $(s).hidden = s !== id; });
     $('tabbar').hidden = id !== 'scr-list';
     document.body.classList.remove('bar-hide');
     window.scrollTo(0, 0);
@@ -577,6 +647,7 @@
     }
     var nl = $('n-late'); nl.textContent = late.length; nl.hidden = !(state.loaded && late.length);
     document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === state.tab ? 'true' : 'false'); });
+    if (state.tab === 'cow'){ renderCow(); return; }
 
     var list = $('list'); list.innerHTML = '';
     if (!state.loaded) return;
@@ -590,13 +661,154 @@
     });
     var shown = 0;
     if (state.tab !== 'done') buckets.forEach(function(b){ if (b[2].length){ list.appendChild(section(b[0], b[1], b[2])); shown += b[2].length; } });
-    if (state.tab !== 'open' && done.length){ list.appendChild(section('完了', COLOR.done, done)); shown += done.length; }
+    if (state.tab === 'done' && done.length){ list.appendChild(section('完了', COLOR.done, done)); shown += done.length; }
     if (!shown){
       var e = el('div', 'empty');
       if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode('左の丸をタップすると完了になります')); }
       else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('下の「＋ 追加」から登録できます')); }
       list.appendChild(e);
     }
+  }
+
+  /* ---------- 牛のリマインド（v1.3） ---------- */
+  function atDate(at){ var m = at.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); return m ? new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]) : null; }
+  function localAt(d){ return ymd(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function fmtAt(at){ var d = atDate(at); return d ? (d.getMonth()+1) + '/' + d.getDate() + '(' + WD[d.getDay()] + ') ' + d.getHours() + ':' + pad(d.getMinutes()) : at; }
+  function untilText(at){
+    var d = atDate(at); if (!d) return '';
+    var min = Math.round((d - new Date()) / 60000);
+    if (min <= 0) return 'まもなく通知';
+    if (min < 60) return 'あと' + min + '分';
+    var h = Math.floor(min / 60);
+    if (h < 24) return 'あと' + h + '時間' + (min % 60 ? (min % 60) + '分' : '');
+    return 'あと' + Math.round(h / 24) + '日';
+  }
+
+  function cowCard(r){
+    var past = r.status !== '予定';
+    var row = el('div', 'item cow-item' + (past ? ' past' : ''));
+    row.style.setProperty('--k', past ? 'var(--c-gray)' : 'var(--c-orange)');
+    var d = atDate(r.at);
+    var w = el('div', 'cow-when');
+    w.appendChild(el('span', 'd', d ? (d.getMonth()+1) + '/' + d.getDate() + '(' + WD[d.getDay()] + ')' : ''));
+    w.appendChild(el('span', 't', d ? d.getHours() + ':' + pad(d.getMinutes()) : r.at));
+    var main = el('div', 'main'); main.style.gap = '0';
+    var meta = el('div', 'meta'); meta.style.marginTop = '0';
+    var tg = el('span', 'tagk', r.kind); tg.style.setProperty('--k', past ? 'var(--c-gray)' : 'var(--c-orange)');
+    meta.appendChild(tg);
+    meta.appendChild(el('span', null, past ? 'LINE通知済み' : untilText(r.at)));
+    main.appendChild(meta);
+    main.appendChild(el('div', 'cow-memo', r.memo || '（メモなし）'));
+    var del = el('button', 'cow-del', '削除'); del.type = 'button';
+    var armT;
+    del.addEventListener('click', function(){
+      if (!del.classList.contains('armed')){
+        del.classList.add('armed'); del.textContent = 'もう一度で削除';
+        armT = setTimeout(function(){ del.classList.remove('armed'); del.textContent = '削除'; }, 3500);
+        return;
+      }
+      clearTimeout(armT); del.disabled = true; del.textContent = '削除中…'; setBusy(true);
+      apiPost('remDelete', r.id).then(function(rems){ state.rems = rems; render(); toast('削除しました'); })
+        .catch(function(err){ toast(msgOf(err, '削除できませんでした')); render(); })
+        .then(function(){ setBusy(false); });
+    });
+    row.appendChild(w); row.appendChild(main); row.appendChild(del);
+    return row;
+  }
+
+  function renderCow(){
+    var list = $('list'); list.innerHTML = '';
+    $('counts').hidden = true;
+    var upcoming = state.rems.filter(function(r){ return r.status === '予定'; });
+    var past = state.rems.filter(function(r){ return r.status !== '予定'; }).reverse();
+    if (!state.remLoaded){
+      document.body.setAttribute('data-loading', state.remError ? '0' : '1');
+      setHero('var(--c-gray)', state.remError ? 'alert' : 'hourglass', state.remError ? 'つながりません' : '読み込み中', state.remError ? '電波の良いところで「更新」を押してください' : '牛の予定を取ってきています');
+      $('pill-t').textContent = '牛';
+      if (state.remError) list.appendChild(el('div', 'msg-error', state.remError));
+      return;
+    }
+    document.body.setAttribute('data-loading', '0');
+    if (upcoming.length){
+      var n = upcoming[0];
+      setHero('var(--c-orange)', 'cow', '次の' + n.kind + '　' + fmtAt(n.at), untilText(n.at) + '・時間になったらLINEでお知らせ');
+    } else {
+      setHero('var(--c-green)', 'cow', '予定はありません', '下の＋から移動・運搬の予定を登録できます');
+    }
+    $('pill-t').textContent = '牛 ' + upcoming.length;
+    if (state.remError) list.appendChild(el('div', 'msg-error', state.remError));
+    function sec(title, color, arr){
+      var h = el('div', 'sec-title'); var bd = el('span', 'badge', title); bd.style.setProperty('--k', color);
+      h.appendChild(bd); h.appendChild(document.createTextNode(arr.length + '件')); list.appendChild(h);
+      var box = el('div', 'items'); arr.forEach(function(r){ box.appendChild(cowCard(r)); }); list.appendChild(box);
+    }
+    if (upcoming.length) sec('これから', 'var(--c-orange)', upcoming);
+    if (past.length) sec('通知済み（2週間）', 'var(--c-gray)', past);
+    if (!upcoming.length && !past.length){
+      var e = el('div', 'empty'); e.appendChild(el('b', null, '牛のリマインドはまだありません'));
+      e.appendChild(document.createTextNode('下の「＋ 追加」→ 移動 → 日時 を選ぶだけで登録できます'));
+      list.appendChild(e);
+    }
+    list.appendChild(el('p', 'note', '通知はやましんのLINEにだけ届きます（5分ごとに確認）'));
+  }
+
+  function loadRems(silent){
+    setBusy(true);
+    return apiPost('remList').then(function(rems){
+      state.rems = rems; state.remLoaded = true; state.remError = '';
+    }).catch(function(){
+      state.remError = '牛の予定を読み込めませんでした。電波の良いところで「更新」を押してください。';
+      if (!silent && state.remLoaded) toast('読み込めませんでした');
+    }).then(function(){ setBusy(false); if (!$('scr-list').hidden) render(); });
+  }
+
+  /* 登録画面 */
+  var cowKind = '移動';
+  function whenChoices(){
+    var now = new Date(), out = [];
+    function at(dayAdd, h, m){ var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayAdd, h, m); return d; }
+    var cands = [[0, 17, 0, '今日 夕方'], [1, 7, 0, '明日 朝'], [1, 13, 0, '明日 昼'], [2, 7, 0, 'あさって 朝']];
+    var inHour = new Date(now.getTime() + 60 * 60000); inHour.setMinutes(Math.ceil(inHour.getMinutes() / 5) * 5, 0, 0);
+    out.push({ d: inHour, label: '1時間後' });
+    cands.forEach(function(c){ var d = at(c[0], c[1], c[2]); if (d > now) out.push({ d: d, label: c[3] }); });
+    return out.slice(0, 4);
+  }
+  function showPicked(){
+    var v = $('c-at').value;
+    $('c-picked').textContent = v ? cowKind + '：' + fmtAt(v.replace('T', ' ')) + ' にお知らせ' : '';
+    document.querySelectorAll('#c-whens .when-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.at === v ? 'true' : 'false'); });
+  }
+  function openCow(){
+    cowKind = '移動';
+    document.querySelectorAll('#c-kinds .kind-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.kind === cowKind ? 'true' : 'false'); });
+    var box = $('c-whens'); box.innerHTML = '';
+    whenChoices().forEach(function(w){
+      var b = el('button', 'when-btn'); b.type = 'button'; b.dataset.at = localAt(w.d);
+      b.appendChild(document.createTextNode(w.label));
+      b.appendChild(el('small', null, (w.d.getMonth()+1) + '/' + w.d.getDate() + ' ' + w.d.getHours() + ':' + pad(w.d.getMinutes())));
+      b.addEventListener('click', function(){ $('c-at').value = b.dataset.at; showPicked(); cErr(''); });
+      box.appendChild(b);
+    });
+    $('c-at').value = ''; $('c-memo').value = ''; cErr(''); showPicked();
+    $('c-save').disabled = false; $('c-save').textContent = '登録する';
+    show('scr-cow');
+  }
+  function cErr(msg){ var e = $('c-err'); e.textContent = msg; e.hidden = !msg; }
+  function submitCow(ev){
+    ev.preventDefault();
+    var v = $('c-at').value;
+    if (!v){ cErr('いつ知らせるかを選んでください'); return; }
+    var d = atDate(v);
+    if (!d || d < new Date(Date.now() - 60000)){ cErr('過ぎた日時です。これからの日時を選んでください'); return; }
+    $('c-save').disabled = true; $('c-save').textContent = '登録中…'; cErr(''); setBusy(true);
+    apiPost('remAdd', { kind: cowKind, at: v, memo: $('c-memo').value.trim(), name: getLS(KEY.name) }).then(function(rems){
+      state.rems = rems; state.remLoaded = true; state.remError = '';
+      state.tab = 'cow'; setLS(KEY.tab, 'cow');
+      show('scr-list'); render(); toast('登録しました：' + fmtAt(v.replace('T', ' ')));
+    }).catch(function(err){
+      $('c-save').disabled = false; $('c-save').textContent = '登録する';
+      cErr(msgOf(err, '登録できませんでした。電波を確認して、もう一度押してください'));
+    }).then(function(){ setBusy(false); });
   }
 
   /* ---------- データ操作 ---------- */
@@ -706,10 +918,23 @@
 
   /* ---------- イベント ---------- */
   document.querySelectorAll('.tab[data-tab]').forEach(function(b){
-    b.addEventListener('click', function(){ state.tab = b.dataset.tab; setLS(KEY.tab, state.tab); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    b.addEventListener('click', function(){
+      state.tab = b.dataset.tab; setLS(KEY.tab, state.tab); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (state.tab === 'cow') loadRems(true);
+    });
   });
-  $('add').addEventListener('click', function(){ openEdit(null); });
-  $('reload').addEventListener('click', function(){ load(false); });
+  $('add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });
+  $('reload').addEventListener('click', function(){ if (state.tab === 'cow') loadRems(false); else load(false); });
+  $('scr-cow').addEventListener('submit', submitCow);
+  $('cow-back').addEventListener('click', function(){ show('scr-list'); render(); });
+  $('c-cancel').addEventListener('click', function(){ show('scr-list'); render(); });
+  $('c-at').addEventListener('input', function(){ showPicked(); cErr(''); });
+  $('c-kinds').addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('.kind-btn'); if (!b) return;
+    cowKind = b.dataset.kind;
+    document.querySelectorAll('#c-kinds .kind-btn').forEach(function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    showPicked();
+  });
   $('scr-edit').addEventListener('submit', submit);
   $('back').addEventListener('click', backToList);
   $('cancel').addEventListener('click', backToList);
@@ -743,17 +968,19 @@
   }, { passive: true });
 
   // 画面に戻ってきた時と、一覧を開いている間は1分ごとに最新化
-  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) load(true); });
-  setInterval(function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) load(true); }, 60000);
+  function refresh(){ if (state.tab === 'cow') loadRems(true); else load(true); }
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) refresh(); });
+  setInterval(function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) refresh(); }, 60000);
 
   /* ---------- 起動 ---------- */
   paintIcons();
   $('ver').textContent = 'SHINTAKU ToDo ' + APP_VERSION;
   applyFs(getLS(KEY.fs) || '中');
   var savedTab = getLS(KEY.tab);
-  if (savedTab === 'open' || savedTab === 'done' || savedTab === 'all') state.tab = savedTab;
+  if (savedTab === 'open' || savedTab === 'done' || savedTab === 'cow') state.tab = savedTab;
   render();
   load(false);
+  if (state.tab === 'cow') loadRems(true);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
 
   /* ---------- アプリとして入れる（v1.2） ----------
