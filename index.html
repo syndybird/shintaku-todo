@@ -342,6 +342,23 @@
   .back-fab .ic { width: 26px; height: 26px; }
   .back-fab:active { transform: scale(.94); }
 
+  /* v1.22：右下の「いちばん上へ」ボタン。下にスクロールしたときだけ出す */
+  .top-fab {
+    position: fixed; z-index: 28;
+    right: max(18px, calc((100vw - 440px) / 2 + 18px));
+    bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 104px);
+    width: 50px; height: 50px; border-radius: 50%; border: none; padding: 0;
+    display: grid; place-items: center; color: #fff; background: var(--ink);
+    box-shadow: 0 6px 16px rgba(31,36,33,.22);
+    opacity: 0; transform: translateY(12px) scale(.9); pointer-events: none;
+    transition: opacity .2s, transform .2s;
+  }
+  .top-fab.on { opacity: .92; transform: none; pointer-events: auto; }
+  .top-fab.on:active { transform: scale(.94); }
+  .top-fab .ic { width: 26px; height: 26px; }
+  body.searching .top-fab { bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 116px + var(--sh, 0px)); }
+  body.kb .top-fab { opacity: 0; pointer-events: none; }
+
   /* v1.20：さがす（言葉＋登録者で絞り込み） */
   /* v1.21：検索欄は一覧の中ではなく、下バーのすぐ上に浮かせて出す（メニューと同じ層） */
   .search {
@@ -617,6 +634,7 @@
 </nav>
 
 <div class="ptr" id="ptr" aria-hidden="true"><span class="ic" data-i="reload"></span></div>
+<button class="top-fab" type="button" id="top-btn" aria-label="いちばん上へ" tabindex="-1"><span class="ic" data-i="up"></span></button>
 <button class="back-fab" type="button" id="back-btn" aria-label="ひとつ前に戻る" hidden><span class="ic" data-i="back"></span></button>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -628,7 +646,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.21';
+  var APP_VERSION = 'v1.22';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -646,6 +664,7 @@
     search:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>',
     star:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>',
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    up:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>',
     back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
     truck:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>',
@@ -1370,6 +1389,17 @@
     render();
     if (state.searchOpen){ $('scroller').scrollTop = 0; setTimeout(function(){ $('q').focus(); }, 50); }
   });
+  // v1.22：下にスクロールしたら右下に「いちばん上へ」ボタンを出す
+  (function(){
+    var sc = $('scroller'), btn = $('top-btn'), on = false;
+    function upd(){
+      var v = sc.scrollTop > Math.max(240, sc.clientHeight * 0.5);
+      if (v !== on){ on = v; btn.classList.toggle('on', v); btn.tabIndex = v ? 0 : -1; }
+    }
+    sc.addEventListener('scroll', upd, { passive: true });
+    window.addEventListener('resize', upd);
+    btn.addEventListener('click', function(){ sc.scrollTo({ top: 0, behavior: 'smooth' }); });
+  })();
   $('q').addEventListener('input', function(){ state.q = $('q').value; render(); });
   $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); $('q').blur(); } });
   $('q-clear').addEventListener('click', function(){ state.q = ''; $('q').value = ''; render(); $('q').focus(); });
