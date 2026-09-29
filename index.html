@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -213,27 +213,30 @@
   .confirm-box { background: var(--bg); border-radius: 14px; padding: 14px 16px; margin: 4px 0 18px; font-size: 15px; font-weight: 700; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 
   /* ===== 下バー（中央＝＋追加） ===== */
+  /* v1.5：常に表示。すりガラスのように後ろが透ける丸いバー（Timeeアプリ風） */
   .tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-    transition: transform .25s ease;   /* v1.1: 下へスクロール中は隠す（body.bar-hide） */
     display: flex; justify-content: center;
-    padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
+    padding: 0 12px calc(10px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
   }
   .tabbar .inner {
     pointer-events: auto; width: 100%; max-width: 440px;
     display: flex; align-items: flex-end; justify-content: space-around;
-    background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 8px;
-    box-shadow: 0 8px 26px rgba(31,36,33,.14);
+    background: rgba(255, 255, 255, .62);
+    -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, .7); border-radius: 36px; padding: 6px;
+    box-shadow: 0 8px 28px rgba(31,36,33,.16), inset 0 0 0 .5px rgba(31,36,33,.06);
   }
-  body.bar-hide .tabbar { transform: translateY(calc(100% + 40px)); }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .tabbar .inner { background: rgba(255, 255, 255, .94); }   /* すりガラス非対応の端末は白っぽく */
+  }
   .tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 8px 2px 6px; border: none; background: none; font-size: 11px; font-weight: 800; color: var(--ink-sub);
-    white-space: nowrap; position: relative;
+    padding: 8px 2px 7px; border: none; background: none; font-size: 11px; font-weight: 800; color: #5f6561;
+    white-space: nowrap; position: relative; border-radius: 30px; transition: background .15s;
   }
   .tab .ic { width: 25px; height: 25px; }
-  .tab[aria-selected="true"] { color: var(--ink); }
-  .tab[aria-selected="true"]::after { content: ""; position: absolute; bottom: 0; width: 18px; height: 3px; border-radius: 3px; background: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
   .tab:active { transform: scale(.94); }
   .tab .num { position: absolute; top: 2px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 10.5px; line-height: 18px; color: #fff; background: var(--c-red); }
   .tab.center { flex: none; width: 80px; }
@@ -470,7 +473,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.4';
+  var APP_VERSION = 'v1.5';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -559,7 +562,6 @@
   function show(id){
     ['scr-list', 'scr-edit', 'scr-del', 'scr-cow'].forEach(function(s){ $(s).hidden = s !== id; });
     $('tabbar').hidden = id !== 'scr-list';
-    document.body.classList.remove('bar-hide');
     window.scrollTo(0, 0);
   }
   function msgOf(err, fallback){ var m = err && err.message ? String(err.message) : ''; return /[ぁ-んァ-ン一-龥]/.test(m) ? m : fallback; }
@@ -1026,18 +1028,6 @@
     });
   });
 
-  // 下バー：下へスクロールしたら隠す／上へ戻す・一番上と一番下では出す（v1.1）
-  var lastY = window.scrollY, ticking = false;
-  window.addEventListener('scroll', function(){
-    if (ticking) return; ticking = true;
-    requestAnimationFrame(function(){
-      var y = window.scrollY, dy = y - lastY;
-      var atBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 8;
-      if (y < 40 || atBottom || dy < -6) document.body.classList.remove('bar-hide');
-      else if (dy > 6) document.body.classList.add('bar-hide');
-      lastY = y; ticking = false;
-    });
-  }, { passive: true });
 
   // 画面に戻ってきた時と、一覧を開いている間は1分ごとに最新化
   function refresh(){ if (state.tab === 'cow') loadRems(true); else load(true); }
