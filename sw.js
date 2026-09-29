@@ -1,7 +1,7 @@
 /* SHINTAKU ToDo Service Worker
  * 画面ファイルだけを保存して起動を速くする（データはいつもサーバーから取得）
  * 画面を更新したら VERSION を上げる */
-const VERSION = 'shintaku-todo-v1.0';
+const VERSION = 'shintaku-todo-v1.1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './logo.png', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './favicon.png'];
 
 self.addEventListener('install', (e) => {
