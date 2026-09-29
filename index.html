@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -38,11 +38,17 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+  html { background: var(--bg); -webkit-text-size-adjust: 100%; height: 100%; }
+  /* v1.12：ページ全体は動かさず、中身だけを #scroller の中でスクロールさせる。
+     （iPhoneで画面の長さが変わった時に、下のバーが一瞬ずれる現象を防ぐ） */
   body {
     background: var(--bg); color: var(--ink); font-family: var(--font);
-    min-height: 100vh; min-height: 100dvh;
-    padding: 0 0 calc(96px + env(safe-area-inset-bottom, 0px));   /* 下バーに隠れない余白 */
+    height: 100%; overflow: hidden;
+  }
+  #scroller {
+    position: fixed; inset: 0; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    padding: 0 0 calc(110px + env(safe-area-inset-bottom, 0px));   /* 下バーに隠れない余白 */
   }
   button, input, textarea { font-family: inherit; color: inherit; }
   button { cursor: pointer; }
@@ -313,6 +319,7 @@
 </head>
 <body data-loading="1">
 
+<div id="scroller">
 <!-- ===== 一覧（ホーム） ===== -->
 <div id="scr-list">
   <div class="wrap">
@@ -483,6 +490,8 @@
   </div>
 </form>
 
+</div><!-- /#scroller -->
+
 <!-- ===== 下バー ===== -->
 <nav class="tabbar" id="tabbar" aria-label="メニュー">
   <div class="inner">
@@ -506,7 +515,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.11';
+  var APP_VERSION = 'v1.12';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -604,7 +613,7 @@
       if (id === 'scr-cow') b.setAttribute('aria-selected', b.dataset.tab === 'cow' ? 'true' : 'false');
     });
     setCenter();
-    window.scrollTo(0, 0);
+    $('scroller').scrollTop = 0;
   }
   // 中央の＋：牛の画面ではオレンジ（牛の予定を追加）、それ以外は緑（やることを追加）
   function setCenter(){
@@ -1063,7 +1072,7 @@
       if (fromForm || state.tab !== b.dataset.tab) pushNav();
       state.tab = b.dataset.tab; setLS(KEY.tab, state.tab);
       if (fromForm){ state.editing = null; show('scr-list'); }   // 入力中にタブを押したら、その一覧へ（戻るボタンの代わり）
-      render(); window.scrollTo({ top: 0, behavior: fromForm ? 'auto' : 'smooth' });
+      render(); $('scroller').scrollTo({ top: 0, behavior: fromForm ? 'auto' : 'smooth' });
       if (state.tab === 'cow') loadRems(true);
     });
   });
