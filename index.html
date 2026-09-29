@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: やることにも緑の＋（中央の追加は後で撤去予定）） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -221,15 +221,24 @@
     padding: 0 10px max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)); pointer-events: none;
   }
   .tabbar .inner {
+    position: relative;
     pointer-events: auto; width: 100%; max-width: 440px;
     display: flex; align-items: flex-end; justify-content: space-around;
-    background: rgba(255, 255, 255, .62);
+    background: rgba(255, 255, 255, .74);
     -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, .7); border-radius: 999px; padding: 6px 10px;   /* v1.6：両端まで丸く */
-    box-shadow: 0 8px 28px rgba(31,36,33,.16), inset 0 0 0 .5px rgba(31,36,33,.06);
+    border-radius: 999px; padding: 6px 10px;   /* v1.6：両端まで丸く */
+    box-shadow: 0 8px 28px rgba(31,36,33,.16);
+  }
+  /* v1.11：中央を丸く膨らませる（バーと同じすりガラスの半円を上に足す） */
+  .tabbar .bump {
+    position: absolute; left: 50%; top: -24px; width: 88px; height: 88px; margin-left: -44px;
+    border-radius: 50%; pointer-events: none;
+    background: rgba(255, 255, 255, .74);
+    -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
+    clip-path: inset(0 0 calc(100% - 25px) 0);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .tabbar .inner { background: rgba(255, 255, 255, .94); }   /* すりガラス非対応の端末は白っぽく */
+    .tabbar .inner, .tabbar .bump { background: rgba(255, 255, 255, .94); }   /* すりガラス非対応の端末は白っぽく */
   }
   .tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -240,14 +249,18 @@
   .tab[aria-selected="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
   .tab:active { transform: scale(.94); }
   .tab .num { position: absolute; top: 2px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 10.5px; line-height: 18px; color: #fff; background: var(--c-red); }
-  /* v1.7：追加ボタンもほかのボタンと同じ大きさ・同じ高さに（黒い丸に＋で目印だけ残す） */
-  .tab.center { color: var(--ink); }
+  /* v1.11：中央の追加を大きく。色は画面ごと（やること・完了＝緑／牛＝オレンジ） */
+  .tab.center { flex: none; width: 84px; color: var(--c-green); z-index: 1; }
+  .tab.center.cow { color: var(--c-orange); }
+  .tab.center[aria-selected="true"] { background: none; }
   .tab.center .dot {
-    width: 25px; height: 25px; border-radius: 50%;
+    width: 58px; height: 58px; margin-top: -30px; margin-bottom: 1px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: var(--ink); color: #fff;
+    background: var(--c-green); color: #fff;
+    box-shadow: 0 6px 16px rgba(91,140,62,.4);
   }
-  .tab.center .dot .ic { width: 17px; height: 17px; }
+  .tab.center.cow .dot { background: var(--c-orange); box-shadow: 0 6px 16px rgba(229,138,0,.4); }
+  .tab.center .dot .ic { width: 30px; height: 30px; }
   .tab.spin .ic { animation: heroFlip 1.2s ease-in-out infinite; }
 
   /* ===== 牛のリマインド（v1.3） ===== */
@@ -276,18 +289,17 @@
   .sub-lbl { display: block; font-size: 13px; font-weight: 800; margin: 16px 0 7px; }
   .when-picked { margin-bottom: 16px; margin-top: 10px; font-size: 14px; font-weight: 800; text-align: center; color: var(--ink); }
 
-  /* v1.10：一覧の右下に浮かべる＋。やること・完了＝緑（やることを追加）／牛＝オレンジ（牛の予定を追加） */
-  .cow-fab {
+  /* v1.11：左下の「戻る」（グレー）。ひとつ前の画面・タブに戻る。戻り先がないときは出さない */
+  .back-fab {
     position: fixed; z-index: 31;
-    right: max(18px, calc((100vw - 440px) / 2 + 18px));
-    bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 84px);
-    width: 60px; height: 60px; border-radius: 50%; border: none; padding: 0;
-    display: grid; place-items: center; color: #fff; background: var(--c-green);
-    box-shadow: 0 8px 20px rgba(91,140,62,.38), 0 2px 6px rgba(31,36,33,.15);
+    left: max(18px, calc((100vw - 440px) / 2 + 18px));
+    bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 90px);
+    width: 50px; height: 50px; border-radius: 50%; border: none; padding: 0;
+    display: grid; place-items: center; color: #fff; background: var(--c-gray);
+    box-shadow: 0 6px 16px rgba(31,36,33,.22);
   }
-  .cow-fab.cow { background: var(--c-orange); box-shadow: 0 8px 20px rgba(229,138,0,.38), 0 2px 6px rgba(31,36,33,.15); }
-  .cow-fab .ic { width: 30px; height: 30px; }
-  .cow-fab:active { transform: scale(.94); }
+  .back-fab .ic { width: 26px; height: 26px; }
+  .back-fab:active { transform: scale(.94); }
 
   /* トースト */
   .toast {
@@ -474,6 +486,7 @@
 <!-- ===== 下バー ===== -->
 <nav class="tabbar" id="tabbar" aria-label="メニュー">
   <div class="inner">
+    <span class="bump" aria-hidden="true"></span>
     <button class="tab" type="button" data-tab="open" aria-selected="true"><span class="ic" data-i="list"></span>やること<span class="num" id="n-late" hidden></span></button>
     <button class="tab" type="button" data-tab="done" aria-selected="false"><span class="ic" data-i="checkc"></span>完了</button>
     <button class="tab center" type="button" id="add" aria-label="やることを追加"><span class="dot"><span class="ic" data-i="plus"></span></span>追加</button>
@@ -482,7 +495,7 @@
   </div>
 </nav>
 
-<button class="cow-fab" type="button" id="cow-add" aria-label="やることを追加" hidden><span class="ic" data-i="plus"></span></button>
+<button class="back-fab" type="button" id="back-btn" aria-label="ひとつ前に戻る" hidden><span class="ic" data-i="back"></span></button>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
@@ -493,7 +506,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.10';
+  var APP_VERSION = 'v1.11';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -508,6 +521,7 @@
     checkc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/></svg>',
     plus:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     cow:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5c1.8 0 3.3.6 4.5 1.5M20.5 6.5c-1.8 0-3.3.6-4.5 1.5"/><path d="M8 8h8l1 4.5c0 4-2.3 7.5-5 7.5s-5-3.5-5-7.5z"/><ellipse cx="12" cy="16.3" rx="3.2" ry="2.2"/><path d="M9.8 11.5h.01M14.2 11.5h.01"/></svg>',
+    back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
     truck:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>',
     stack:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
@@ -589,14 +603,36 @@
       if (inForm) b.setAttribute('aria-selected', 'false');
       if (id === 'scr-cow') b.setAttribute('aria-selected', b.dataset.tab === 'cow' ? 'true' : 'false');
     });
-    setFab(id === 'scr-list');
+    setCenter();
     window.scrollTo(0, 0);
   }
-  function setFab(onList){
-    var f = $('cow-add'), cow = state.tab === 'cow';
-    f.hidden = !onList;
-    f.classList.toggle('cow', cow);
-    f.setAttribute('aria-label', cow ? '牛の予定を追加' : 'やることを追加');
+  // 中央の＋：牛の画面ではオレンジ（牛の予定を追加）、それ以外は緑（やることを追加）
+  function setCenter(){
+    var cow = state.tab === 'cow';
+    $('add').classList.toggle('cow', cow);
+    $('add').setAttribute('aria-label', cow ? '牛の予定を追加' : 'やることを追加');
+  }
+
+  /* ---------- 戻る（v1.11）：画面やタブを切り替えるたびに、ひとつ前を覚えておく ---------- */
+  var navStack = [];
+  function curScreen(){ return ['scr-edit', 'scr-cow', 'scr-del'].filter(function(s){ return !$(s).hidden; })[0] || 'scr-list'; }
+  function updateBack(){ $('back-btn').hidden = navStack.length === 0; }
+  function pushNav(){
+    navStack.push({ scr: curScreen(), tab: state.tab, editing: state.editing });
+    if (navStack.length > 30) navStack.shift();
+    updateBack();
+  }
+  function goBack(){
+    var p = navStack.pop(); updateBack();
+    if (!p) return;
+    state.tab = p.tab; setLS(KEY.tab, p.tab);
+    if (p.scr === 'scr-list'){ state.editing = null; show('scr-list'); render(); if (p.tab === 'cow') loadRems(true); }
+    else { state.editing = p.editing; show(p.scr); }
+  }
+  // 保存・削除のあと：入力画面の分の「戻る先」を片づけて、一覧に戻る
+  function finishForm(){
+    while (navStack.length && navStack[navStack.length - 1].scr !== 'scr-list') navStack.pop();
+    navStack.pop(); updateBack();
   }
   function msgOf(err, fallback){ var m = err && err.message ? String(err.message) : ''; return /[ぁ-んァ-ン一-龥]/.test(m) ? m : fallback; }
 
@@ -693,7 +729,7 @@
       if (late.length) setHero('var(--c-red)', 'alert', '期限切れ ' + late.length + '件', today + '・早めに片づけましょう');
       else if (tod.length) setHero('var(--c-orange)', 'clock', '今日まで ' + tod.length + '件', today + '・今日中に終わらせたいもの');
       else if (open.length) setHero('var(--c-green)', 'clip', '順調です', today + '・期限切れはありません');
-      else setHero('var(--c-green)', 'clip', 'やることなし', today + '・右下の＋から登録できます');
+      else setHero('var(--c-green)', 'clip', 'やることなし', today + '・下の＋から登録できます');
       $('pill-t').textContent = '未完了 ' + open.length;
       var cs = $('counts'); cs.innerHTML = '';
       [['期限切れ', late.length, 'red'], ['今日まで', tod.length, 'orange'], ['未完了', open.length, ''], ['物資まだ', supNg, supNg ? 'orange' : '']].forEach(function(c){
@@ -703,7 +739,7 @@
     }
     var nl = $('n-late'); nl.textContent = late.length; nl.hidden = !(state.loaded && late.length);
     document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === state.tab ? 'true' : 'false'); });
-    setFab($('scr-edit').hidden && $('scr-cow').hidden && $('scr-del').hidden);
+    setCenter();
     if (state.tab === 'cow'){ renderCow(); return; }
 
     var list = $('list'); list.innerHTML = '';
@@ -722,7 +758,7 @@
     if (!shown){
       var e = el('div', 'empty');
       if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode('左の丸をタップすると完了になります')); }
-      else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('右下の緑の＋から登録できます')); }
+      else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('下の緑の＋から登録できます')); }
       list.appendChild(e);
     }
   }
@@ -799,7 +835,7 @@
       var n = upcoming[0];
       setHero('var(--c-orange)', 'cow', '次の' + n.kind + '　' + fmtAt(n.at), untilText(n.at) + (n.kind === '運搬' ? '・前日と当日の朝7時にLINEでお知らせ' : '・時間になったらLINEでお知らせ'));
     } else {
-      setHero('var(--c-green)', 'cow', '予定はありません', '右下のオレンジの＋から移動・運搬を登録できます');
+      setHero('var(--c-green)', 'cow', '予定はありません', '下のオレンジの＋から移動・運搬を登録できます');
     }
     $('pill-t').textContent = '牛 ' + upcoming.length;
     if (state.remError) list.appendChild(el('div', 'msg-error', state.remError));
@@ -812,7 +848,7 @@
     if (past.length) sec('済み（2週間）', 'var(--c-gray)', past);
     if (!upcoming.length && !past.length){
       var e = el('div', 'empty'); e.appendChild(el('b', null, '牛のリマインドはまだありません'));
-      e.appendChild(document.createTextNode('右下のオレンジの＋ → 移動か運搬 → 日時 を選ぶだけで登録できます'));
+      e.appendChild(document.createTextNode('下のオレンジの＋ → 移動か運搬 → 日時 を選ぶだけで登録できます'));
       list.appendChild(e);
     }
     list.appendChild(el('p', 'note', '通知はやましんのLINEにだけ届きます（5分ごとに確認）'));
@@ -879,6 +915,7 @@
     document.querySelectorAll('#c-whens .when-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.at === v ? 'true' : 'false'); });
   }
   function openCow(){
+    pushNav();
     tDay = ''; tTime = ''; $('c-day').value = ''; $('c-time').value = ''; $('c-time').hidden = true;
     renderTruck();
     var box = $('c-whens'); box.innerHTML = '';
@@ -907,7 +944,7 @@
     apiPost('remAdd', { kind: cowKind, at: v, memo: $('c-memo').value.trim(), name: getLS(KEY.name) }).then(function(rems){
       state.rems = rems; state.remLoaded = true; state.remError = '';
       state.tab = 'cow'; setLS(KEY.tab, 'cow');
-      show('scr-list'); render(); toast('登録しました：' + fmtAt(v.replace('T', ' ')));
+      finishForm(); show('scr-list'); render(); toast('登録しました：' + fmtAt(v.replace('T', ' ')));
     }).catch(function(err){
       $('c-save').disabled = false; $('c-save').textContent = '登録する';
       cErr(msgOf(err, '登録できませんでした。電波を確認して、もう一度押してください'));
@@ -965,6 +1002,7 @@
   function showErr(msg){ var e = $('f-err'); e.textContent = msg; e.hidden = !msg; }
 
   function openEdit(t){
+    pushNav();
     state.editing = t || null;
     $('edit-title').textContent = t ? 'やることを編集' : 'やることを追加';
     $('edit-sub').textContent = t ? '直したら「保存する」' : '内容と目標日を入れて「保存する」';
@@ -993,17 +1031,17 @@
     (editing ? apiPost('apiUpdate', editing.id, payload) : apiPost('apiAdd', payload)).then(function(items){
       state.items = items; state.loaded = true; state.error = '';
       if (!editing && state.tab !== 'open'){ state.tab = 'open'; setLS(KEY.tab, 'open'); }
-      backToList(); toast(editing ? '保存しました' : '登録しました');
+      finishForm(); backToList(); toast(editing ? '保存しました' : '登録しました');
     }).catch(function(err){
       $('save').disabled = false; $('save').textContent = '保存する';
       showErr(msgOf(err, '保存できませんでした。電波を確認して、もう一度「保存する」を押してください'));
     }).then(function(){ setBusy(false); });
   }
-  function askDelete(){ if (!state.editing) return; $('del-text').textContent = state.editing.text; show('scr-del'); }
+  function askDelete(){ if (!state.editing) return; pushNav(); $('del-text').textContent = state.editing.text; show('scr-del'); }
   function doDelete(){
     var t = state.editing; if (!t) return;
     $('del-yes').disabled = true; $('del-yes').textContent = '削除中…'; setBusy(true);
-    apiPost('apiDelete', t.id).then(function(items){ state.items = items; backToList(); toast('削除しました'); })
+    apiPost('apiDelete', t.id).then(function(items){ state.items = items; finishForm(); backToList(); toast('削除しました'); })
       .catch(function(err){ toast(msgOf(err, '削除できませんでした')); show('scr-edit'); })
       .then(function(){ $('del-yes').disabled = false; $('del-yes').textContent = '削除する'; setBusy(false); });
   }
@@ -1022,14 +1060,15 @@
   document.querySelectorAll('.tab[data-tab]').forEach(function(b){
     b.addEventListener('click', function(){
       var fromForm = $('scr-list').hidden;
+      if (fromForm || state.tab !== b.dataset.tab) pushNav();
       state.tab = b.dataset.tab; setLS(KEY.tab, state.tab);
       if (fromForm){ state.editing = null; show('scr-list'); }   // 入力中にタブを押したら、その一覧へ（戻るボタンの代わり）
       render(); window.scrollTo({ top: 0, behavior: fromForm ? 'auto' : 'smooth' });
       if (state.tab === 'cow') loadRems(true);
     });
   });
-  $('add').addEventListener('click', function(){ openEdit(null); });   // v1.9：下の「追加」はやること専用
-  $('cow-add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });
+  $('add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });   // v1.11：中央の＋は画面に合わせて
+  $('back-btn').addEventListener('click', goBack);
   $('reload').addEventListener('click', function(){ if (state.tab === 'cow') loadRems(false); else load(false); });
   $('scr-cow').addEventListener('submit', submitCow);
 
@@ -1050,7 +1089,7 @@
 
   $('del').addEventListener('click', askDelete);
   $('del-yes').addEventListener('click', doDelete);
-  $('del-no').addEventListener('click', function(){ show('scr-edit'); });
+  $('del-no').addEventListener('click', goBack);
 
   $('quick').addEventListener('click', function(e){ var q = e.target && e.target.getAttribute('data-q'); if (q != null) $('f-due').value = quickDate(q); });
   $('sup-add').addEventListener('click', function(){ takeSupInput(); $('f-sup').focus(); });
