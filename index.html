@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: やることにも緑の＋（中央の追加は後で撤去予定）） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -276,15 +276,16 @@
   .sub-lbl { display: block; font-size: 13px; font-weight: 800; margin: 16px 0 7px; }
   .when-picked { margin-bottom: 16px; margin-top: 10px; font-size: 14px; font-weight: 800; text-align: center; color: var(--ink); }
 
-  /* v1.9：牛ページ専用のオレンジの＋（下のバーの右上に浮かべる） */
+  /* v1.10：一覧の右下に浮かべる＋。やること・完了＝緑（やることを追加）／牛＝オレンジ（牛の予定を追加） */
   .cow-fab {
     position: fixed; z-index: 31;
     right: max(18px, calc((100vw - 440px) / 2 + 18px));
     bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 84px);
     width: 60px; height: 60px; border-radius: 50%; border: none; padding: 0;
-    display: grid; place-items: center; color: #fff; background: var(--c-orange);
-    box-shadow: 0 8px 20px rgba(229,138,0,.38), 0 2px 6px rgba(31,36,33,.15);
+    display: grid; place-items: center; color: #fff; background: var(--c-green);
+    box-shadow: 0 8px 20px rgba(91,140,62,.38), 0 2px 6px rgba(31,36,33,.15);
   }
+  .cow-fab.cow { background: var(--c-orange); box-shadow: 0 8px 20px rgba(229,138,0,.38), 0 2px 6px rgba(31,36,33,.15); }
   .cow-fab .ic { width: 30px; height: 30px; }
   .cow-fab:active { transform: scale(.94); }
 
@@ -481,7 +482,7 @@
   </div>
 </nav>
 
-<button class="cow-fab" type="button" id="cow-add" aria-label="牛の予定を追加" hidden><span class="ic" data-i="plus"></span></button>
+<button class="cow-fab" type="button" id="cow-add" aria-label="やることを追加" hidden><span class="ic" data-i="plus"></span></button>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
@@ -492,7 +493,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.9';
+  var APP_VERSION = 'v1.10';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -588,8 +589,14 @@
       if (inForm) b.setAttribute('aria-selected', 'false');
       if (id === 'scr-cow') b.setAttribute('aria-selected', b.dataset.tab === 'cow' ? 'true' : 'false');
     });
-    $('cow-add').hidden = !(id === 'scr-list' && state.tab === 'cow');
+    setFab(id === 'scr-list');
     window.scrollTo(0, 0);
+  }
+  function setFab(onList){
+    var f = $('cow-add'), cow = state.tab === 'cow';
+    f.hidden = !onList;
+    f.classList.toggle('cow', cow);
+    f.setAttribute('aria-label', cow ? '牛の予定を追加' : 'やることを追加');
   }
   function msgOf(err, fallback){ var m = err && err.message ? String(err.message) : ''; return /[ぁ-んァ-ン一-龥]/.test(m) ? m : fallback; }
 
@@ -686,7 +693,7 @@
       if (late.length) setHero('var(--c-red)', 'alert', '期限切れ ' + late.length + '件', today + '・早めに片づけましょう');
       else if (tod.length) setHero('var(--c-orange)', 'clock', '今日まで ' + tod.length + '件', today + '・今日中に終わらせたいもの');
       else if (open.length) setHero('var(--c-green)', 'clip', '順調です', today + '・期限切れはありません');
-      else setHero('var(--c-green)', 'clip', 'やることなし', today + '・下の＋から登録できます');
+      else setHero('var(--c-green)', 'clip', 'やることなし', today + '・右下の＋から登録できます');
       $('pill-t').textContent = '未完了 ' + open.length;
       var cs = $('counts'); cs.innerHTML = '';
       [['期限切れ', late.length, 'red'], ['今日まで', tod.length, 'orange'], ['未完了', open.length, ''], ['物資まだ', supNg, supNg ? 'orange' : '']].forEach(function(c){
@@ -696,7 +703,7 @@
     }
     var nl = $('n-late'); nl.textContent = late.length; nl.hidden = !(state.loaded && late.length);
     document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === state.tab ? 'true' : 'false'); });
-    $('cow-add').hidden = !($('scr-edit').hidden && $('scr-cow').hidden && $('scr-del').hidden && state.tab === 'cow');
+    setFab($('scr-edit').hidden && $('scr-cow').hidden && $('scr-del').hidden);
     if (state.tab === 'cow'){ renderCow(); return; }
 
     var list = $('list'); list.innerHTML = '';
@@ -715,7 +722,7 @@
     if (!shown){
       var e = el('div', 'empty');
       if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode('左の丸をタップすると完了になります')); }
-      else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('下の「＋ 追加」から登録できます')); }
+      else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('右下の緑の＋から登録できます')); }
       list.appendChild(e);
     }
   }
@@ -1022,7 +1029,7 @@
     });
   });
   $('add').addEventListener('click', function(){ openEdit(null); });   // v1.9：下の「追加」はやること専用
-  $('cow-add').addEventListener('click', openCow);
+  $('cow-add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });
   $('reload').addEventListener('click', function(){ if (state.tab === 'cow') loadRems(false); else load(false); });
   $('scr-cow').addEventListener('submit', submitCow);
 
