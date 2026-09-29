@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -569,7 +569,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.16';
+  var APP_VERSION = 'v1.17';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -1091,7 +1091,7 @@
       var li = el('li'), lb = el('label'), cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = !!x.ok; cb.id = 'f-sup-ok-' + i;
       cb.addEventListener('change', function(){ x.ok = cb.checked; });
-      lb.appendChild(cb); lb.appendChild(document.createTextNode('準備OK')); li.appendChild(lb);
+      cb.setAttribute('aria-label', x.n + ' の準備ができた'); lb.appendChild(cb); li.appendChild(lb);   // v1.17：「準備OK」の文字は紛らわしいので出さない
       li.appendChild(el('span', 'nm', x.n));
       var rm = el('button', 'rm', '×'); rm.type = 'button'; rm.setAttribute('aria-label', x.n + ' を外す');
       rm.addEventListener('click', function(){ formSup.splice(i, 1); renderSupEdit(); });
