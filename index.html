@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -267,7 +267,10 @@
   .whens { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .when-btn { padding: 12px 6px; font-size: 14.5px; flex-direction: column; gap: 0; line-height: 1.35; }
   .when-btn small { font-size: 11.5px; font-weight: 700; opacity: .75; }
-  .when-picked { margin-top: 10px; font-size: 14px; font-weight: 800; text-align: center; color: var(--ink); }
+  .times { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .times .when-btn { padding: 14px 4px; font-size: 16px; }
+  .sub-lbl { display: block; font-size: 13px; font-weight: 800; margin: 16px 0 7px; }
+  .when-picked { margin-bottom: 16px; margin-top: 10px; font-size: 14px; font-weight: 800; text-align: center; color: var(--ink); }
 
   /* トースト */
   .toast {
@@ -408,15 +411,32 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" id="c-truck-box" hidden>
+          <span class="lbl">運搬する日</span>
+          <div class="whens" id="c-days"></div>
+          <input class="inp" type="date" id="c-day" style="margin-top:10px" aria-label="ほかの日を選ぶ">
+          <span class="sub-lbl">時間</span>
+          <div class="times" id="c-times">
+            <button type="button" class="when-btn" data-t="10:00">10時</button>
+            <button type="button" class="when-btn" data-t="11:00">11時</button>
+            <button type="button" class="when-btn" data-t="13:00">13時</button>
+            <button type="button" class="when-btn" data-t="14:00">14時</button>
+            <button type="button" class="when-btn" data-t="15:00">15時</button>
+            <button type="button" class="when-btn" data-t="other">その他</button>
+          </div>
+          <input class="inp" type="time" id="c-time" step="300" hidden style="margin-top:10px" aria-label="時刻を選ぶ">
+          <p class="note">お知らせは 前日の朝7時 と 当日の朝7時（LINE）</p>
+        </div>
+
+        <div class="field" id="c-move-box">
           <span class="lbl">いつ知らせる？</span>
           <div class="whens" id="c-whens"></div>
           <div class="field" style="margin:12px 0 0">
             <label for="c-at">日時を自分で選ぶ</label>
             <input class="inp" type="datetime-local" id="c-at" step="300">
           </div>
-          <p class="when-picked" id="c-picked"></p>
         </div>
+        <p class="when-picked" id="c-picked"></p>
 
         <div class="field">
           <label for="c-memo">メモ<small>任意</small></label>
@@ -450,7 +470,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.3';
+  var APP_VERSION = 'v1.4';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -684,8 +704,17 @@
     return 'あと' + Math.round(h / 24) + '日';
   }
 
+  function isUpcoming(r){
+    if (r.kind === '運搬'){ var d = atDate(r.at); return !!d && d > new Date(); }
+    return r.status === '予定';
+  }
+  function truckState(r){
+    if (r.status === '前日通知済み') return '前日に通知済み・当日7時にLINE';
+    if (r.status === '通知済み') return '当日の通知済み';
+    return '前日・当日の7時にLINE';
+  }
   function cowCard(r){
-    var past = r.status !== '予定';
+    var past = !isUpcoming(r);
     var row = el('div', 'item cow-item' + (past ? ' past' : ''));
     row.style.setProperty('--k', past ? 'var(--c-gray)' : 'var(--c-orange)');
     var d = atDate(r.at);
@@ -696,7 +725,7 @@
     var meta = el('div', 'meta'); meta.style.marginTop = '0';
     var tg = el('span', 'tagk', r.kind); tg.style.setProperty('--k', past ? 'var(--c-gray)' : 'var(--c-orange)');
     meta.appendChild(tg);
-    meta.appendChild(el('span', null, past ? 'LINE通知済み' : untilText(r.at)));
+    meta.appendChild(el('span', null, r.kind === '運搬' ? (past ? '運搬済み' : untilText(r.at) + '・' + truckState(r)) : (past ? 'LINE通知済み' : untilText(r.at))));
     main.appendChild(meta);
     main.appendChild(el('div', 'cow-memo', r.memo || '（メモなし）'));
     var del = el('button', 'cow-del', '削除'); del.type = 'button';
@@ -719,8 +748,8 @@
   function renderCow(){
     var list = $('list'); list.innerHTML = '';
     $('counts').hidden = true;
-    var upcoming = state.rems.filter(function(r){ return r.status === '予定'; });
-    var past = state.rems.filter(function(r){ return r.status !== '予定'; }).reverse();
+    var upcoming = state.rems.filter(isUpcoming);
+    var past = state.rems.filter(function(r){ return !isUpcoming(r); }).reverse();
     if (!state.remLoaded){
       document.body.setAttribute('data-loading', state.remError ? '0' : '1');
       setHero('var(--c-gray)', state.remError ? 'alert' : 'hourglass', state.remError ? 'つながりません' : '読み込み中', state.remError ? '電波の良いところで「更新」を押してください' : '牛の予定を取ってきています');
@@ -731,7 +760,7 @@
     document.body.setAttribute('data-loading', '0');
     if (upcoming.length){
       var n = upcoming[0];
-      setHero('var(--c-orange)', 'cow', '次の' + n.kind + '　' + fmtAt(n.at), untilText(n.at) + '・時間になったらLINEでお知らせ');
+      setHero('var(--c-orange)', 'cow', '次の' + n.kind + '　' + fmtAt(n.at), untilText(n.at) + (n.kind === '運搬' ? '・前日と当日の朝7時にLINEでお知らせ' : '・時間になったらLINEでお知らせ'));
     } else {
       setHero('var(--c-green)', 'cow', '予定はありません', '下の＋から移動・運搬の予定を登録できます');
     }
@@ -743,7 +772,7 @@
       var box = el('div', 'items'); arr.forEach(function(r){ box.appendChild(cowCard(r)); }); list.appendChild(box);
     }
     if (upcoming.length) sec('これから', 'var(--c-orange)', upcoming);
-    if (past.length) sec('通知済み（2週間）', 'var(--c-gray)', past);
+    if (past.length) sec('済み（2週間）', 'var(--c-gray)', past);
     if (!upcoming.length && !past.length){
       var e = el('div', 'empty'); e.appendChild(el('b', null, '牛のリマインドはまだありません'));
       e.appendChild(document.createTextNode('下の「＋ 追加」→ 移動 → 日時 を選ぶだけで登録できます'));
@@ -763,7 +792,29 @@
   }
 
   /* 登録画面 */
-  var cowKind = '移動';
+  var cowKind = '移動', tDay = '', tTime = '';
+  function dayLabel(d){ return (d.getMonth()+1) + '/' + d.getDate() + '(' + WD[d.getDay()] + ')'; }
+  function setKind(k){
+    cowKind = k;
+    document.querySelectorAll('#c-kinds .kind-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.kind === k ? 'true' : 'false'); });
+    $('c-truck-box').hidden = k !== '運搬';
+    $('c-move-box').hidden = k === '運搬';
+    $('c-memo').placeholder = k === '運搬' ? '例：希望農場へ 6頭（下牧）' : '例：2号舎 → 5号舎 10頭';
+    showPicked(); cErr('');
+  }
+  function renderTruck(){
+    var box = $('c-days'); box.innerHTML = '';
+    var base = todayDate();
+    ['今日', '明日', 'あさって', 'しあさって'].forEach(function(lb, i){
+      var d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+      var b = el('button', 'when-btn'); b.type = 'button'; b.dataset.day = ymd(d);
+      b.appendChild(document.createTextNode(lb)); b.appendChild(el('small', null, dayLabel(d)));
+      b.addEventListener('click', function(){ tDay = b.dataset.day; $('c-day').value = tDay; showPicked(); cErr(''); });
+      box.appendChild(b);
+    });
+    $('c-day').min = ymd(base);
+  }
+  function truckAt(){ return tDay && tTime ? tDay + 'T' + tTime : ''; }
   function whenChoices(){
     var now = new Date(), out = [];
     function at(dayAdd, h, m){ var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayAdd, h, m); return d; }
@@ -774,13 +825,25 @@
     return out.slice(0, 4);
   }
   function showPicked(){
+    if (cowKind === '運搬'){
+      document.querySelectorAll('#c-days .when-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.day === tDay ? 'true' : 'false'); });
+      var other = !!tTime && ['10:00','11:00','13:00','14:00','15:00'].indexOf(tTime) < 0;
+      document.querySelectorAll('#c-times .when-btn').forEach(function(b){
+        b.setAttribute('aria-pressed', (b.dataset.t === tTime || (b.dataset.t === 'other' && (other || !$('c-time').hidden))) ? 'true' : 'false');
+      });
+      var at = truckAt();
+      if (!at){ $('c-picked').textContent = tDay ? dayLabel(parse(tDay)) + '・時間を選んでください' : ''; return; }
+      var prev = new Date(parse(tDay).getTime() - 86400000);
+      $('c-picked').textContent = '運搬：' + fmtAt(at.replace('T', ' ')) + '　→ ' + dayLabel(prev) + ' 7:00 と ' + dayLabel(parse(tDay)) + ' 7:00 にお知らせ';
+      return;
+    }
     var v = $('c-at').value;
     $('c-picked').textContent = v ? cowKind + '：' + fmtAt(v.replace('T', ' ')) + ' にお知らせ' : '';
     document.querySelectorAll('#c-whens .when-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.at === v ? 'true' : 'false'); });
   }
   function openCow(){
-    cowKind = '移動';
-    document.querySelectorAll('#c-kinds .kind-btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.kind === cowKind ? 'true' : 'false'); });
+    tDay = ''; tTime = ''; $('c-day').value = ''; $('c-time').value = ''; $('c-time').hidden = true;
+    renderTruck();
     var box = $('c-whens'); box.innerHTML = '';
     whenChoices().forEach(function(w){
       var b = el('button', 'when-btn'); b.type = 'button'; b.dataset.at = localAt(w.d);
@@ -789,14 +852,17 @@
       b.addEventListener('click', function(){ $('c-at').value = b.dataset.at; showPicked(); cErr(''); });
       box.appendChild(b);
     });
-    $('c-at').value = ''; $('c-memo').value = ''; cErr(''); showPicked();
+    $('c-at').value = ''; $('c-memo').value = '';
+    setKind('移動');
     $('c-save').disabled = false; $('c-save').textContent = '登録する';
     show('scr-cow');
   }
   function cErr(msg){ var e = $('c-err'); e.textContent = msg; e.hidden = !msg; }
   function submitCow(ev){
     ev.preventDefault();
-    var v = $('c-at').value;
+    var v = cowKind === '運搬' ? truckAt() : $('c-at').value;
+    if (cowKind === '運搬' && !tDay){ cErr('運搬する日を選んでください'); return; }
+    if (cowKind === '運搬' && !tTime){ cErr('時間を選んでください'); return; }
     if (!v){ cErr('いつ知らせるかを選んでください'); return; }
     var d = atDate(v);
     if (!d || d < new Date(Date.now() - 60000)){ cErr('過ぎた日時です。これからの日時を選んでください'); return; }
@@ -931,10 +997,16 @@
   $('c-at').addEventListener('input', function(){ showPicked(); cErr(''); });
   $('c-kinds').addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('.kind-btn'); if (!b) return;
-    cowKind = b.dataset.kind;
-    document.querySelectorAll('#c-kinds .kind-btn').forEach(function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-    showPicked();
+    setKind(b.dataset.kind);
   });
+  $('c-day').addEventListener('input', function(){ tDay = $('c-day').value; showPicked(); cErr(''); });
+  $('c-times').addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('.when-btn'); if (!b) return;
+    if (b.dataset.t === 'other'){ $('c-time').hidden = false; tTime = $('c-time').value || ''; $('c-time').focus(); }
+    else { $('c-time').hidden = true; $('c-time').value = ''; tTime = b.dataset.t; }
+    showPicked(); cErr('');
+  });
+  $('c-time').addEventListener('input', function(){ tTime = $('c-time').value; showPicked(); cErr(''); });
   $('scr-edit').addEventListener('submit', submit);
   $('back').addEventListener('click', backToList);
   $('cancel').addEventListener('click', backToList);
