@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -42,7 +42,7 @@
   body {
     background: var(--bg); color: var(--ink); font-family: var(--font);
     min-height: 100vh; min-height: 100dvh;
-    padding: 0 0 calc(104px + env(safe-area-inset-bottom, 0px));   /* 下バーに隠れない余白 */
+    padding: 0 0 calc(96px + env(safe-area-inset-bottom, 0px));   /* 下バーに隠れない余白 */
   }
   button, input, textarea { font-family: inherit; color: inherit; }
   button { cursor: pointer; }
@@ -217,14 +217,15 @@
   .tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
     display: flex; justify-content: center;
-    padding: 0 12px calc(10px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
+    /* v1.6：画面の一番下まで下げる（iPhoneのホームバーの帯に少し重ねる） */
+    padding: 0 10px max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)); pointer-events: none;
   }
   .tabbar .inner {
     pointer-events: auto; width: 100%; max-width: 440px;
     display: flex; align-items: flex-end; justify-content: space-around;
     background: rgba(255, 255, 255, .62);
     -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, .7); border-radius: 36px; padding: 6px;
+    border: 1px solid rgba(255, 255, 255, .7); border-radius: 999px; padding: 6px 10px;   /* v1.6：両端まで丸く */
     box-shadow: 0 8px 28px rgba(31,36,33,.16), inset 0 0 0 .5px rgba(31,36,33,.06);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -233,7 +234,7 @@
   .tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
     padding: 8px 2px 7px; border: none; background: none; font-size: 11px; font-weight: 800; color: #5f6561;
-    white-space: nowrap; position: relative; border-radius: 30px; transition: background .15s;
+    white-space: nowrap; position: relative; border-radius: 999px; transition: background .15s;
   }
   .tab .ic { width: 25px; height: 25px; }
   .tab[aria-selected="true"] { color: var(--ink); background: rgba(31, 36, 33, .08); }
@@ -278,7 +279,7 @@
   /* トースト */
   .toast {
     position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
-    bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(100px + env(safe-area-inset-bottom, 0px));
     background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 14px; font-size: 14px; font-weight: 700;
     max-width: calc(100% - 32px); box-shadow: 0 8px 20px rgba(31,36,33,.25);
   }
@@ -473,7 +474,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.5';
+  var APP_VERSION = 'v1.6';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
