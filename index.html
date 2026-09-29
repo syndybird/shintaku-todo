@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -145,7 +145,16 @@
   .tago.good { color: var(--c-green); border-color: color-mix(in srgb, var(--c-green) 35%, #fff); }
 
   .supplies { border-top: 1px dashed var(--line); padding-top: 6px; }
-  .sup-head { font-size: 12px; font-weight: 800; color: var(--ink-sub); margin: 2px 0 2px; }
+  /* v1.13：必要物資はふだんたたむ。見出しを押すと開く */
+  .sup-head {
+    width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 4px 0;
+    font-size: 12.5px; font-weight: 800; color: var(--ink-sub); text-align: left; min-height: 32px;
+  }
+  .sup-head .cnt { font-variant-numeric: tabular-nums; }
+  .sup-head .cnt.ng { color: var(--c-orange); }
+  .sup-head .cnt.ok { color: var(--c-green); }
+  .sup-head .chev { margin-left: auto; width: 18px; height: 18px; transition: transform .2s; }
+  .sup-head[aria-expanded="true"] .chev { transform: rotate(180deg); }
   .sup-list { list-style: none; }
   .sup-row { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 0; background: transparent; padding: 7px 0; min-height: 40px; border-radius: 10px; }
   .sup-row:active { background: var(--bg); }
@@ -515,7 +524,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.12';
+  var APP_VERSION = 'v1.13';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -530,6 +539,7 @@
     checkc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/></svg>',
     plus:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     cow:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5c1.8 0 3.3.6 4.5 1.5M20.5 6.5c-1.8 0-3.3.6-4.5 1.5"/><path d="M8 8h8l1 4.5c0 4-2.3 7.5-5 7.5s-5-3.5-5-7.5z"/><ellipse cx="12" cy="16.3" rx="3.2" ry="2.2"/><path d="M9.8 11.5h.01M14.2 11.5h.01"/></svg>',
+    chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
     back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
     truck:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg>',
@@ -547,7 +557,7 @@
   var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale' };
   var COLOR = { late: 'var(--c-red)', today: 'var(--c-orange)', soon: 'var(--c-green)', later: 'var(--c-green)', none: 'var(--c-gray)', done: 'var(--c-blue)' };
   var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null,
-                rems: [], remLoaded: false, remError: '' };
+                rems: [], remLoaded: false, remError: '', supOpen: {} };
 
   /* ---------- サーバー通信 ---------- */
   function apiGet(){ return fetch(API_URL + '?api=list', { cache: 'no-store' }).then(parseRes); }
@@ -683,8 +693,15 @@
 
     if (sup.length){
       var box = el('div', 'supplies');
-      box.appendChild(el('div', 'sup-head', '必要物資　' + readyN + ' / ' + sup.length));
-      var ul = el('ul', 'sup-list');
+      var opened = !!state.supOpen[t.id];
+      var hd = el('button', 'sup-head'); hd.type = 'button';
+      hd.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      hd.appendChild(document.createTextNode('必要物資'));
+      hd.appendChild(el('span', 'cnt ' + (readyN === sup.length ? 'ok' : 'ng'), readyN + ' / ' + sup.length + (readyN === sup.length ? ' 準備OK' : ' 準備')));
+      var chev = el('span', 'chev'); chev.innerHTML = ICONS.chev; hd.appendChild(chev);
+      hd.addEventListener('click', function(){ state.supOpen[t.id] = !state.supOpen[t.id]; render(); });
+      box.appendChild(hd);
+      var ul = el('ul', 'sup-list'); ul.hidden = !opened;
       sup.forEach(function(x, i){
         var li = el('li');
         var b = el('button', 'sup-row' + (x.ok ? ' ok' : '')); b.type = 'button';
