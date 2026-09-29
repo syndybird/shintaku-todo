@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -276,6 +276,18 @@
   .sub-lbl { display: block; font-size: 13px; font-weight: 800; margin: 16px 0 7px; }
   .when-picked { margin-bottom: 16px; margin-top: 10px; font-size: 14px; font-weight: 800; text-align: center; color: var(--ink); }
 
+  /* v1.9：牛ページ専用のオレンジの＋（下のバーの右上に浮かべる） */
+  .cow-fab {
+    position: fixed; z-index: 31;
+    right: max(18px, calc((100vw - 440px) / 2 + 18px));
+    bottom: calc(max(6px, calc(env(safe-area-inset-bottom, 0px) - 14px)) + 84px);
+    width: 60px; height: 60px; border-radius: 50%; border: none; padding: 0;
+    display: grid; place-items: center; color: #fff; background: var(--c-orange);
+    box-shadow: 0 8px 20px rgba(229,138,0,.38), 0 2px 6px rgba(31,36,33,.15);
+  }
+  .cow-fab .ic { width: 30px; height: 30px; }
+  .cow-fab:active { transform: scale(.94); }
+
   /* トースト */
   .toast {
     position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
@@ -469,6 +481,8 @@
   </div>
 </nav>
 
+<button class="cow-fab" type="button" id="cow-add" aria-label="牛の予定を追加" hidden><span class="ic" data-i="plus"></span></button>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
@@ -478,7 +492,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.8';
+  var APP_VERSION = 'v1.9';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -567,9 +581,14 @@
   function show(id){
     ['scr-list', 'scr-edit', 'scr-del', 'scr-cow'].forEach(function(s){ $(s).hidden = s !== id; });
     // v1.8：下のバーはどの画面でも出す。入力中は「追加」を選択中に見せる
-    var inForm = id !== 'scr-list';
+    // v1.9：「追加」はやること専用。牛の登録中は「牛」を選択中のままにする
+    var inForm = id === 'scr-edit' || id === 'scr-del';
     $('add').setAttribute('aria-selected', inForm ? 'true' : 'false');
-    document.querySelectorAll('.tab[data-tab]').forEach(function(b){ if (inForm) b.setAttribute('aria-selected', 'false'); });
+    document.querySelectorAll('.tab[data-tab]').forEach(function(b){
+      if (inForm) b.setAttribute('aria-selected', 'false');
+      if (id === 'scr-cow') b.setAttribute('aria-selected', b.dataset.tab === 'cow' ? 'true' : 'false');
+    });
+    $('cow-add').hidden = !(id === 'scr-list' && state.tab === 'cow');
     window.scrollTo(0, 0);
   }
   function msgOf(err, fallback){ var m = err && err.message ? String(err.message) : ''; return /[ぁ-んァ-ン一-龥]/.test(m) ? m : fallback; }
@@ -677,6 +696,7 @@
     }
     var nl = $('n-late'); nl.textContent = late.length; nl.hidden = !(state.loaded && late.length);
     document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === state.tab ? 'true' : 'false'); });
+    $('cow-add').hidden = !($('scr-edit').hidden && $('scr-cow').hidden && $('scr-del').hidden && state.tab === 'cow');
     if (state.tab === 'cow'){ renderCow(); return; }
 
     var list = $('list'); list.innerHTML = '';
@@ -772,7 +792,7 @@
       var n = upcoming[0];
       setHero('var(--c-orange)', 'cow', '次の' + n.kind + '　' + fmtAt(n.at), untilText(n.at) + (n.kind === '運搬' ? '・前日と当日の朝7時にLINEでお知らせ' : '・時間になったらLINEでお知らせ'));
     } else {
-      setHero('var(--c-green)', 'cow', '予定はありません', '下の＋から移動・運搬の予定を登録できます');
+      setHero('var(--c-green)', 'cow', '予定はありません', '右下のオレンジの＋から移動・運搬を登録できます');
     }
     $('pill-t').textContent = '牛 ' + upcoming.length;
     if (state.remError) list.appendChild(el('div', 'msg-error', state.remError));
@@ -785,7 +805,7 @@
     if (past.length) sec('済み（2週間）', 'var(--c-gray)', past);
     if (!upcoming.length && !past.length){
       var e = el('div', 'empty'); e.appendChild(el('b', null, '牛のリマインドはまだありません'));
-      e.appendChild(document.createTextNode('下の「＋ 追加」→ 移動 → 日時 を選ぶだけで登録できます'));
+      e.appendChild(document.createTextNode('右下のオレンジの＋ → 移動か運搬 → 日時 を選ぶだけで登録できます'));
       list.appendChild(e);
     }
     list.appendChild(el('p', 'note', '通知はやましんのLINEにだけ届きます（5分ごとに確認）'));
@@ -965,7 +985,7 @@
     $('save').disabled = true; $('save').textContent = '保存中…'; showErr(''); setBusy(true);
     (editing ? apiPost('apiUpdate', editing.id, payload) : apiPost('apiAdd', payload)).then(function(items){
       state.items = items; state.loaded = true; state.error = '';
-      if (!editing && state.tab === 'done'){ state.tab = 'open'; setLS(KEY.tab, 'open'); }
+      if (!editing && state.tab !== 'open'){ state.tab = 'open'; setLS(KEY.tab, 'open'); }
       backToList(); toast(editing ? '保存しました' : '登録しました');
     }).catch(function(err){
       $('save').disabled = false; $('save').textContent = '保存する';
@@ -1001,7 +1021,8 @@
       if (state.tab === 'cow') loadRems(true);
     });
   });
-  $('add').addEventListener('click', function(){ if (state.tab === 'cow') openCow(); else openEdit(null); });
+  $('add').addEventListener('click', function(){ openEdit(null); });   // v1.9：下の「追加」はやること専用
+  $('cow-add').addEventListener('click', openCow);
   $('reload').addEventListener('click', function(){ if (state.tab === 'cow') loadRems(false); else load(false); });
   $('scr-cow').addEventListener('submit', submitCow);
 
