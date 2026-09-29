@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除 / v1.18: 入力中は中央が✓保存） -->
+<!-- SHINTAKU ToDo アプリ版 v1.3 - 伸託やることリスト（v1.1: バーの固定を減らす / v1.2: Androidでアプリとして入れる / v1.3: 牛の移動・運搬リマインド / v1.4: 運搬は日付＋時刻ボタン・前日と当日7時に通知 / v1.5: 下のバーを常に表示・すりガラス / v1.6: バーを丸く・一番下へ / v1.7: 追加ボタンをほかと同じ大きさに / v1.8: 戻るボタンをなくし下のバーで移動 / v1.9: 追加はやること専用・牛はオレンジの＋ / v1.10: 右下の＋ / v1.11: 中央の＋を大きく・色分け、左下に戻る / v1.12: 画面切替時のバーのずれを修正 / v1.13: 必要物資をたたむ / v1.14: 優先度★と並び順 / v1.15: 戻るは追加・編集画面だけ / v1.16: 登録済みの登録者は変更不可 / v1.17: 入力画面の「準備OK」表記を削除 / v1.18: 入力中は中央が✓保存 / v1.19: 引っぱって更新） -->
 <!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
 <!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
 <!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認 ／ 牛のリマインド。下のバーは「やること・完了・[中央＋追加]・牛・更新」 -->
@@ -342,6 +342,21 @@
   .back-fab .ic { width: 26px; height: 26px; }
   .back-fab:active { transform: scale(.94); }
 
+  /* v1.19：引っぱって更新。一覧のいちばん上で下に引いて離すと再読み込み */
+  .ptr {
+    position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 25;
+    width: 40px; height: 40px; margin-left: -20px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--card); color: var(--ink-sub);
+    box-shadow: 0 4px 14px rgba(31,36,33,.18); opacity: 0; pointer-events: none;
+    transform: translateY(-50px);
+  }
+  .ptr .ic { width: 22px; height: 22px; }
+  .ptr.ready { color: var(--c-green); }
+  .ptr.loading .ic { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #scr-list.pulling { transition: none; }
+  #scr-list.settle { transition: transform .25s ease; }
+
   /* トースト */
   .toast {
     position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
@@ -558,6 +573,7 @@
   </div>
 </nav>
 
+<div class="ptr" id="ptr" aria-hidden="true"><span class="ic" data-i="reload"></span></div>
 <button class="back-fab" type="button" id="back-btn" aria-label="ひとつ前に戻る" hidden><span class="ic" data-i="back"></span></button>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -569,7 +585,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.18';
+  var APP_VERSION = 'v1.19';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -1195,6 +1211,46 @@
     if (state.tab === 'cow') openCow(); else openEdit(null);            // v1.11：中央の＋は画面に合わせて
   });
   $('back-btn').addEventListener('click', goBack);
+
+  /* ---------- 引っぱって更新（v1.19） ---------- */
+  (function(){
+    var sc = $('scroller'), list = $('scr-list'), ptr = $('ptr');
+    var TH = 70, MAX = 110, startY = 0, dist = 0, pulling = false, busy = false;
+    function paint(d){
+      list.style.transform = d ? 'translateY(' + d + 'px)' : '';
+      ptr.style.opacity = Math.min(1, d / TH);
+      ptr.style.transform = 'translateY(' + (Math.min(d, TH) - 50) + 'px) rotate(' + (d * 3) + 'deg)';
+      ptr.classList.toggle('ready', d >= TH);
+    }
+    function reset(){
+      list.classList.add('settle'); paint(0);
+      setTimeout(function(){ list.classList.remove('settle'); ptr.classList.remove('loading'); ptr.style.transform = 'translateY(-50px)'; }, 260);
+    }
+    sc.addEventListener('touchstart', function(e){
+      if (busy || list.hidden || sc.scrollTop > 0 || e.touches.length !== 1) { pulling = false; return; }
+      startY = e.touches[0].clientY; dist = 0; pulling = true; list.classList.add('pulling');
+    }, { passive: true });
+    sc.addEventListener('touchmove', function(e){
+      if (!pulling) return;
+      var dy = e.touches[0].clientY - startY;
+      if (dy <= 0 || sc.scrollTop > 0){ if (dist) paint(0); dist = 0; return; }
+      e.preventDefault();                       // 画面ごと動かさず、こちらで引っぱりを表示
+      dist = Math.min(MAX, dy * 0.5);
+      paint(dist);
+    }, { passive: false });
+    sc.addEventListener('touchend', function(){
+      if (!pulling) return;
+      pulling = false; list.classList.remove('pulling');
+      if (dist >= TH){
+        busy = true; list.classList.add('settle'); paint(56); ptr.classList.add('loading');
+        ptr.style.transform = 'translateY(6px)';
+        var p = state.tab === 'cow' ? loadRems(false) : load(false);
+        Promise.resolve(p).then(function(){ busy = false; reset(); if (!(state.tab === 'cow' ? state.remError : state.error)) toast('最新の状態にしました'); });
+      } else { reset(); }
+      dist = 0;
+    });
+    sc.addEventListener('touchcancel', function(){ pulling = false; list.classList.remove('pulling'); reset(); });
+  })();
   $('f-stars').addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('[data-p]'); if (!b) return;
     var n = +b.dataset.p; setFormStars(formStars === n ? 0 : n);
