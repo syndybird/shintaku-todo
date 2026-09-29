@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<!-- SHINTAKU ToDo アプリ版 v1.0 - 伸託やることリスト -->
+<!-- 見た目:   OS利用組合の新UI（liff2 / gate / guide2）に合わせる。地=オフホワイト#F5F4EE・カード=白。色は背景でなくアイコン・ピル・左の帯だけに乗せる。 -->
+<!-- 配色:     緑=順調・準備OK / 橙=今日まで・物資まだ / 赤=期限切れ / 青=完了 / 灰=目標日なし -->
+<!-- 画面:     一覧（ホーム）／ 入力（追加・編集）／ 削除の確認。下のバーは「やること・完了・[中央＋追加]・すべて・更新」 -->
+<!-- データ:   GAS WebアプリをAPIとして使う（GET ?api=list / POST {fn,args}）。保存先はスプレッドシート「ToDo」シート。 -->
+<html lang="ja" data-fontscale="中">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SHINTAKU ToDo</title>
+<meta name="description" content="有限会社伸託の共用やることリスト">
+<meta name="theme-color" content="#F5F4EE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="伸託ToDo">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  /* ===== 配色マニフェスト =====
+     地・カード・下バーは不変（オフホワイト地＋白カード）。状態の色はアイコン・ピル・左の帯の「1点」だけに乗せる。
+     色を変えたいときはこのブロックだけ触る。 */
+  :root {
+    --bg:        #F5F4EE;   /* 地：オフホワイト */
+    --card:      #FFFFFF;   /* カード：白 */
+    --ink:       #1f2421;   /* 主文字・主ボタン */
+    --ink-sub:   #8a8f8b;   /* 副文字 */
+    --line:      #e8e7df;   /* 罫線 */
+    --c-green:   #5B8C3E;   /* 順調・準備OK */
+    --c-orange:  #E58A00;   /* 今日まで・物資まだ */
+    --c-red:     #D0453A;   /* 期限切れ */
+    --c-blue:    #2563EB;   /* 完了 */
+    --c-gray:    #9aa0a6;   /* 目標日なし・読み込み中 */
+    --c:         var(--c-green); /* ホームの顔の色（JSが差し替え） */
+    --font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--font);
+    min-height: 100vh; min-height: 100dvh;
+    padding: 0 0 calc(112px + env(safe-area-inset-bottom, 0px));   /* 下バーに隠れない余白 */
+  }
+  button, input, textarea { font-family: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid color-mix(in srgb, var(--ink) 40%, transparent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .wrap { width: 100%; max-width: 440px; margin: 0 auto; padding: 0 16px; }
+
+  /* 文字サイズ（本文 #appBody だけを拡大。ヘッダーと下バーは原寸）。小1.0／中1.15／大1.32・初期=中 */
+  html[data-fontscale="小"] .zoomable { zoom: 1.0; }
+  html[data-fontscale="中"] .zoomable { zoom: 1.15; }
+  html[data-fontscale="大"] .zoomable { zoom: 1.32; }
+
+  .ic { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+  .ic > svg { width: 100%; height: 100%; display: block; }
+
+  /* ===== ヘッダー ===== */
+  .appbar {
+    position: sticky; top: 0; z-index: 20; background: var(--bg);
+    display: flex; align-items: center; gap: 8px;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 0 10px;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .brand .logo { width: 32px; height: 32px; flex: none; }
+  .names { min-width: 0; line-height: 1.2; }
+  .names .org  { font-size: 11.5px; color: var(--ink-sub); }
+  .names .user { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill {
+    margin-left: auto; flex: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px 6px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 800;
+    color: var(--c); background: color-mix(in srgb, var(--c) 12%, #fff);
+    border: 1.5px solid color-mix(in srgb, var(--c) 35%, #fff);
+    font-variant-numeric: tabular-nums;
+  }
+  .pill .ic { width: 15px; height: 15px; }
+  .fsBtn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; background: transparent; color: var(--ink-sub); border-radius: 9px; flex: none; }
+  .fsBtn .ic { width: 22px; height: 22px; }
+  .fsBtn:active { transform: scale(.94); }
+  .fsBtn:disabled { opacity: .35; cursor: default; }
+  .backBtn {
+    display: inline-flex; align-items: center; gap: 4px; padding: 9px 14px; font-size: 14px; font-weight: 800;
+    color: var(--ink-sub); background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  }
+  .backBtn:active { transform: scale(.97); }
+
+  /* ===== ホームの顔（白カード） ===== */
+  .hero {
+    background: var(--card); border-radius: 22px; padding: 24px 20px 20px; text-align: center;
+    box-shadow: 0 8px 26px rgba(31,36,33,.08); border: 1px solid var(--line);
+  }
+  .hero .face {
+    width: 92px; height: 92px; margin: 0 auto 12px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c); background: color-mix(in srgb, var(--c) 10%, #fff);
+  }
+  .hero .face .ic { width: 50px; height: 50px; }
+  @keyframes heroFlip { 0%,40% { transform: rotate(0deg); } 50%,90% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
+  body[data-loading="1"] .hero .face .ic { animation: heroFlip 2s ease-in-out infinite; }
+  .hero .head { font-size: 22px; font-weight: 800; letter-spacing: .02em; }
+  .hero .lead { font-size: 13.5px; color: var(--ink-sub); margin-top: 4px; line-height: 1.6; }
+  .counts { display: flex; justify-content: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .count { font-size: 12.5px; font-weight: 800; padding: 5px 11px; border-radius: 999px; border: 1.5px solid var(--line); color: var(--ink-sub); background: #fff; font-variant-numeric: tabular-nums; }
+  .count b { font-size: 15px; margin-left: 3px; }
+  .count.red    { color: var(--c-red);    border-color: color-mix(in srgb, var(--c-red) 35%, #fff); }
+  .count.orange { color: var(--c-orange); border-color: color-mix(in srgb, var(--c-orange) 35%, #fff); }
+
+  /* ===== 一覧 ===== */
+  .sec-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--ink-sub); margin: 22px 4px 10px; }
+  .sec-title .badge { display: inline-block; font-size: 12px; font-weight: 800; color: #fff; padding: 3px 10px; border-radius: 8px; background: var(--k, var(--c-gray)); }
+  .items { display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    position: relative; display: flex; gap: 12px; align-items: flex-start;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 14px 14px 14px 16px; box-shadow: 0 4px 14px rgba(31,36,33,.05); overflow: hidden;
+  }
+  .item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--k, var(--c-gray)); }
+  .chk {
+    flex: none; width: 34px; height: 34px; border-radius: 50%; padding: 0; margin-top: -1px;
+    border: 2px solid #cfd3cf; background: #fff; color: #fff; display: grid; place-items: center;
+  }
+  .chk .ic { width: 18px; height: 18px; opacity: 0; }
+  .item.done .chk { background: var(--c-blue); border-color: var(--c-blue); }
+  .item.done .chk .ic { opacity: 1; }
+  .chk:active { transform: scale(.94); }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .body { border: 0; background: transparent; text-align: left; padding: 0; }
+  .text { font-size: 15.5px; font-weight: 700; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .item.done .text { color: #a3a8a4; text-decoration: line-through; font-weight: 500; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 7px; font-size: 12px; color: var(--ink-sub); font-variant-numeric: tabular-nums; }
+  .tagk { display: inline-block; font-size: 12px; font-weight: 800; color: #fff; padding: 3px 9px; border-radius: 8px; background: var(--k, var(--c-gray)); }
+  .tago { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 8px; border: 1.5px solid var(--line); color: var(--ink-sub); }
+  .tago.warn { color: var(--c-orange); border-color: color-mix(in srgb, var(--c-orange) 35%, #fff); }
+  .tago.good { color: var(--c-green); border-color: color-mix(in srgb, var(--c-green) 35%, #fff); }
+
+  .supplies { border-top: 1px dashed var(--line); padding-top: 6px; }
+  .sup-head { font-size: 12px; font-weight: 800; color: var(--ink-sub); margin: 2px 0 2px; }
+  .sup-list { list-style: none; }
+  .sup-row { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 0; background: transparent; padding: 7px 0; min-height: 40px; border-radius: 10px; }
+  .sup-row:active { background: var(--bg); }
+  .box { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 2px solid #cfd3cf; background: #fff; color: #fff; display: grid; place-items: center; }
+  .box .ic { width: 15px; height: 15px; opacity: 0; }
+  .sup-row.ok .box { background: var(--c-green); border-color: var(--c-green); }
+  .sup-row.ok .box .ic { opacity: 1; }
+  .sup-name { flex: 1; min-width: 0; font-size: 14.5px; overflow-wrap: anywhere; }
+  .sup-row.ok .sup-name { color: var(--ink-sub); }
+  .sup-st { flex: none; font-size: 12px; font-weight: 800; }
+  .sup-row.ok .sup-st { color: var(--c-green); }
+  .sup-row:not(.ok) .sup-st { color: var(--c-orange); }
+  .item.done .supplies { opacity: .55; }
+
+  .empty { margin-top: 18px; padding: 28px 18px; background: var(--card); border: 1px dashed #d8d7cf; border-radius: 18px; text-align: center; color: var(--ink-sub); font-size: 13.5px; line-height: 1.7; }
+  .empty b { display: block; color: var(--ink); font-size: 15.5px; }
+  .msg-error { margin-top: 14px; font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border-radius: 14px; color: #b3372d; background: #fdf0ee; border: 1px solid #f3c9c3; }
+  .version { font-size: 10.5px; color: #c4c3bb; margin: 22px 0 6px; text-align: center; }
+
+  /* ===== 入力画面 ===== */
+  .form-card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 22px 18px 20px; box-shadow: 0 8px 26px rgba(31,36,33,.08); }
+  .form-title { font-size: 20px; font-weight: 800; text-align: center; }
+  .form-sub { font-size: 13px; color: var(--ink-sub); text-align: center; margin: 4px 0 18px; }
+  .field { margin-bottom: 18px; }
+  .field > label, .field > .lbl { display: block; font-size: 13px; font-weight: 800; margin-bottom: 7px; }
+  .field small { font-weight: 500; color: var(--ink-sub); margin-left: 6px; }
+  .inp {
+    width: 100%; font-size: 16px; background: #fff; color: var(--ink);
+    border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; outline: none;
+    -webkit-appearance: none; appearance: none; transition: .15s;
+  }
+  .inp:focus { border-color: var(--ink); }
+  textarea.inp { min-height: 96px; resize: vertical; line-height: 1.55; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 480px) { .row2 { grid-template-columns: 1fr; gap: 0; } }   /* スマホは日付を縦に並べて見切れを防ぐ */
+  .row2 .field { min-width: 0; margin-bottom: 10px; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .quick button { font-size: 13px; font-weight: 800; padding: 7px 12px; border-radius: 999px; color: var(--ink); background: #fff; border: 1.5px solid var(--line); }
+  .quick button:active { background: var(--bg); }
+  .sup-add { display: flex; gap: 8px; }
+  .sup-add .inp { flex: 1; min-width: 0; }
+  .sup-add button { flex: none; padding: 0 16px; font-size: 15px; font-weight: 800; color: #fff; background: var(--ink); border: 0; border-radius: 14px; }
+  .sup-edit { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .sup-edit li { display: flex; align-items: center; gap: 10px; border: 1.5px solid var(--line); border-radius: 14px; padding: 6px 6px 6px 12px; background: #fff; }
+  .sup-edit label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--c-green); flex: none; }
+  .sup-edit input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--c-green); }
+  .sup-edit .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14.5px; }
+  .sup-edit .rm { flex: none; width: 34px; height: 34px; border-radius: 10px; border: 0; background: transparent; color: #a3a8a4; font-size: 20px; line-height: 1; }
+  .hint { font-size: 12px; color: var(--ink-sub); margin-top: 6px; }
+  .form-err { font-size: 13.5px; line-height: 1.6; margin: -4px 0 14px; padding: 10px 12px; border-radius: 12px; color: #b3372d; background: #fdf0ee; border: 1px solid #f3c9c3; }
+
+  /* ボタン（gate と同じ形：主＝黒、副＝白） */
+  .btn-primary { display: block; width: 100%; padding: 16px; font-size: 16.5px; font-weight: 800; color: #fff; background: var(--ink); border: none; border-radius: 16px; }
+  .btn-primary:active { transform: scale(.98); opacity: .9; }
+  .btn-primary:disabled { opacity: .45; transform: none; }
+  .btn-secondary { display: block; width: 100%; margin-top: 10px; padding: 14px; font-size: 15px; font-weight: 800; color: var(--ink-sub); background: #fff; border: 1px solid var(--line); border-radius: 16px; }
+  .btn-secondary:active { background: var(--bg); }
+  .btn-danger-o { display: block; width: 100%; margin-top: 18px; padding: 13px; font-size: 14px; font-weight: 800; color: var(--c-red); background: #fff; border: 1.5px solid color-mix(in srgb, var(--c-red) 35%, #fff); border-radius: 16px; }
+  .btn-danger { display: block; width: 100%; padding: 16px; font-size: 16px; font-weight: 800; color: #fff; background: var(--c-red); border: none; border-radius: 16px; }
+  .confirm-box { background: var(--bg); border-radius: 14px; padding: 14px 16px; margin: 4px 0 18px; font-size: 15px; font-weight: 700; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* ===== 下バー（中央＝＋追加） ===== */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: flex; justify-content: center;
+    padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px)); pointer-events: none;
+  }
+  .tabbar .inner {
+    pointer-events: auto; width: 100%; max-width: 440px;
+    display: flex; align-items: flex-end; justify-content: space-around;
+    background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 8px;
+    box-shadow: 0 8px 26px rgba(31,36,33,.14);
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px 2px 6px; border: none; background: none; font-size: 11px; font-weight: 800; color: var(--ink-sub);
+    white-space: nowrap; position: relative;
+  }
+  .tab .ic { width: 25px; height: 25px; }
+  .tab[aria-selected="true"] { color: var(--ink); }
+  .tab[aria-selected="true"]::after { content: ""; position: absolute; bottom: 0; width: 18px; height: 3px; border-radius: 3px; background: var(--ink); }
+  .tab:active { transform: scale(.94); }
+  .tab .num { position: absolute; top: 2px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 10.5px; line-height: 18px; color: #fff; background: var(--c-red); }
+  .tab.center { flex: none; width: 80px; }
+  .tab.center .dot {
+    width: 64px; height: 64px; margin-top: -28px; margin-bottom: 1px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ink); color: #fff; box-shadow: 0 8px 20px rgba(31,36,33,.25);
+  }
+  .tab.center .dot .ic { width: 30px; height: 30px; }
+  .tab.center { color: var(--ink); }
+  .tab.spin .ic { animation: heroFlip 1.2s ease-in-out infinite; }
+
+  /* トースト */
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
+    bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+    background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 14px; font-size: 14px; font-weight: 700;
+    max-width: calc(100% - 32px); box-shadow: 0 8px 20px rgba(31,36,33,.25);
+  }
+  @media (prefers-reduced-motion: reduce) { body[data-loading="1"] .hero .face .ic, .tab.spin .ic { animation: none; } }
+</style>
+</head>
+<body data-loading="1">
+
+<!-- ===== 一覧（ホーム） ===== -->
+<div id="scr-list">
+  <div class="wrap">
+    <header class="appbar">
+      <div class="brand">
+        <img class="logo" src="logo.png" alt="">
+        <div class="names"><div class="org">伸託やることリスト</div><div class="user">SHINTAKU ToDo</div></div>
+      </div>
+      <span class="pill" id="pill"><span class="ic" data-i="clip"></span><span id="pill-t">読み込み中</span></span>
+      <button class="fsBtn" type="button" data-fs="-1" aria-label="文字を小さく"><span class="ic" data-i="zoomout"></span></button>
+      <button class="fsBtn" type="button" data-fs="1" aria-label="文字を大きく"><span class="ic" data-i="zoomin"></span></button>
+    </header>
+
+    <div class="zoomable">
+      <section class="hero" aria-live="polite">
+        <div class="face"><span class="ic" data-i="clip" id="hero-ic"></span></div>
+        <div class="head" id="hero-head">読み込み中</div>
+        <div class="lead" id="hero-lead">リストを取ってきています</div>
+        <div class="counts" id="counts" hidden></div>
+      </section>
+
+      <div id="list"></div>
+      <p class="version" id="ver"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 入力（追加・編集） ===== -->
+<form id="scr-edit" hidden autocomplete="off" novalidate>
+  <div class="wrap">
+    <header class="appbar">
+      <button class="backBtn" type="button" id="back">← 戻る</button>
+      <span class="pill" style="--c: var(--ink-sub)" id="edit-pill">追加</span>
+    </header>
+    <div class="zoomable">
+      <div class="form-card">
+        <p class="form-title" id="edit-title">やることを追加</p>
+        <p class="form-sub" id="edit-sub">内容と目標日を入れて「保存する」</p>
+        <div class="form-err" id="f-err" hidden></div>
+
+        <div class="field">
+          <label for="f-text">内容</label>
+          <textarea class="inp" id="f-text" maxlength="500" placeholder="例：第2牛舎 換気扇のベルト交換"></textarea>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="f-date">日付</label><input class="inp" type="date" id="f-date"></div>
+          <div class="field"><label for="f-due">目標日<small>いつまでに</small></label><input class="inp" type="date" id="f-due"></div>
+        </div>
+        <div class="field">
+          <div class="quick" id="quick" aria-label="目標日をすばやく選ぶ">
+            <button type="button" data-q="0">今日</button>
+            <button type="button" data-q="1">明日</button>
+            <button type="button" data-q="sat">今週の土曜</button>
+            <button type="button" data-q="7">1週間後</button>
+            <button type="button" data-q="eom">今月末</button>
+            <button type="button" data-q="none">なし</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-sup">必要物資<small>準備するもの・任意</small></label>
+          <div class="sup-add">
+            <input class="inp" type="text" id="f-sup" maxlength="60" placeholder="例：Vベルト A-42 ×2" enterkeyhint="done">
+            <button type="button" id="sup-add">追加</button>
+          </div>
+          <ul class="sup-edit" id="sup-edit"></ul>
+          <p class="hint" id="sup-hint">1品ずつ入れて「追加」。準備できたものはチェック</p>
+        </div>
+        <div class="field">
+          <label for="f-name">登録者<small>任意・次から自動で入ります</small></label>
+          <input class="inp" type="text" id="f-name" maxlength="30" placeholder="名前">
+        </div>
+
+        <button class="btn-primary" id="save" type="submit">保存する</button>
+        <button class="btn-secondary" id="cancel" type="button">やめる</button>
+        <button class="btn-danger-o" id="del" type="button" hidden>このやることを削除</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- ===== 削除の確認 ===== -->
+<div id="scr-del" hidden>
+  <div class="wrap">
+    <header class="appbar">
+      <button class="backBtn" type="button" id="del-back">← 戻る</button>
+      <span class="pill" style="--c: var(--c-red)">削除</span>
+    </header>
+    <div class="zoomable">
+      <div class="form-card">
+        <p class="form-title">このやることを削除しますか</p>
+        <p class="form-sub">削除すると元に戻せません</p>
+        <div class="confirm-box" id="del-text"></div>
+        <button class="btn-danger" id="del-yes" type="button">削除する</button>
+        <button class="btn-secondary" id="del-no" type="button">やめる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 下バー ===== -->
+<nav class="tabbar" id="tabbar" aria-label="メニュー">
+  <div class="inner">
+    <button class="tab" type="button" data-tab="open" aria-selected="true"><span class="ic" data-i="list"></span>やること<span class="num" id="n-late" hidden></span></button>
+    <button class="tab" type="button" data-tab="done" aria-selected="false"><span class="ic" data-i="checkc"></span>完了</button>
+    <button class="tab center" type="button" id="add" aria-label="やることを追加"><span class="dot"><span class="ic" data-i="plus"></span></span>追加</button>
+    <button class="tab" type="button" data-tab="all" aria-selected="false"><span class="ic" data-i="stack"></span>すべて</button>
+    <button class="tab" type="button" id="reload"><span class="ic" data-i="reload"></span>更新</button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+  'use strict';
+  /* ============================================================
+   * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
+   * ============================================================ */
+  var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
+  var APP_VERSION = 'v1.0';
+
+  /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
+  var ICONS = {
+    clip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3.5h6v1"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>',
+    alert:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.5h.01"/></svg>',
+    clock:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    smile:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3.5h6v1"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>',
+    hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12"/><path d="M7 3c0 5 5 6 5 9s-5 4-5 9"/><path d="M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
+    zoomin:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/><path d="M8 10.5h5M10.5 8v5"/></svg>',
+    zoomout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/><path d="M8 10.5h5"/></svg>',
+    list:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="17.5" rx="2.5"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/></svg>',
+    checkc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/></svg>',
+    plus:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    stack:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
+    reload:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>',
+    tick:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+  };
+  function paintIcons(root){
+    (root || document).querySelectorAll('.ic[data-i]').forEach(function(e){ e.innerHTML = ICONS[e.getAttribute('data-i')] || ''; });
+  }
+  function icon(name){ var s = document.createElement('span'); s.className = 'ic'; s.innerHTML = ICONS[name] || ''; return s; }
+
+  var WD = ['日','月','火','水','木','金','土'];
+  var FS = ['小','中','大'];
+  var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale' };
+  var COLOR = { late: 'var(--c-red)', today: 'var(--c-orange)', soon: 'var(--c-green)', later: 'var(--c-green)', none: 'var(--c-gray)', done: 'var(--c-blue)' };
+  var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null };
+
+  /* ---------- サーバー通信 ---------- */
+  function apiGet(){ return fetch(API_URL + '?api=list', { cache: 'no-store' }).then(parseRes); }
+  function apiPost(fn){
+    var args = Array.prototype.slice.call(arguments, 1);
+    // Content-Type を付けない（text/plain）ことで、GASへそのまま送れる
+    return fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) }).then(parseRes);
+  }
+  function parseRes(res){
+    if (!res.ok) throw new Error('通信に失敗しました（' + res.status + '）');
+    return res.json().then(function(j){
+      if (!j || !j.ok) throw new Error((j && j.error) || '保存先でエラーが起きました');
+      return j.items || [];
+    });
+  }
+
+  /* ---------- 日付 ---------- */
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+  function parse(s){ var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+  function todayDate(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
+  function daysFromToday(s){ return Math.round((parse(s) - todayDate()) / 86400000); }
+  function fmt(s){
+    if (!s) return '';
+    var d = parse(s), y = d.getFullYear() !== new Date().getFullYear() ? d.getFullYear() + '/' : '';
+    return y + (d.getMonth()+1) + '/' + d.getDate() + '(' + WD[d.getDay()] + ')';
+  }
+  function dueInfo(t){
+    if (!t.due) return { cls: 'none', label: '目標日なし' };
+    var n = daysFromToday(t.due);
+    if (n < 0) return { cls: 'late', n: n, label: (-n) + '日超過' };
+    if (n === 0) return { cls: 'today', n: n, label: '今日まで' };
+    if (n === 1) return { cls: 'soon', n: n, label: '明日まで' };
+    return { cls: n <= 7 ? 'soon' : 'later', n: n, label: 'あと' + n + '日' };
+  }
+  function quickDate(q){
+    var d = todayDate();
+    if (q === 'none') return '';
+    if (q === 'sat') d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7));
+    else if (q === 'eom') d = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    else d.setDate(d.getDate() + (+q));
+    return ymd(d);
+  }
+
+  /* ---------- 端末に保存する設定 ---------- */
+  function getLS(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+  function setLS(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+
+  /* ---------- 画面部品 ---------- */
+  function $(id){ return document.getElementById(id); }
+  function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var toastTimer;
+  function toast(msg){ var t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.hidden = true; }, 2400); }
+  function setBusy(on){ state.busy += on ? 1 : -1; $('reload').classList.toggle('spin', state.busy > 0); }
+  function show(id){
+    ['scr-list', 'scr-edit', 'scr-del'].forEach(function(s){ $(s).hidden = s !== id; });
+    $('tabbar').hidden = id !== 'scr-list';
+    window.scrollTo(0, 0);
+  }
+  function msgOf(err, fallback){ var m = err && err.message ? String(err.message) : ''; return /[ぁ-んァ-ン一-龥]/.test(m) ? m : fallback; }
+
+  /* ---------- 一覧 ---------- */
+  function sortOpen(a, b){
+    if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1;
+    if (a.due !== b.due) return a.due ? -1 : 1;
+    return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+  }
+  function sortDone(a, b){
+    var x = a.doneDate || '', y = b.doneDate || '';
+    if (x !== y) return x < y ? 1 : -1;
+    return (a.updated || '') < (b.updated || '') ? 1 : -1;
+  }
+
+  function card(t){
+    var info = dueInfo(t);
+    var k = t.done ? COLOR.done : COLOR[info.cls];
+    var row = el('div', 'item' + (t.done ? ' done' : '')); row.style.setProperty('--k', k);
+
+    var chk = el('button', 'chk'); chk.type = 'button'; chk.appendChild(icon('tick'));
+    chk.setAttribute('aria-pressed', t.done ? 'true' : 'false');
+    chk.setAttribute('aria-label', t.done ? '未完了に戻す' : '完了にする');
+    chk.addEventListener('click', function(){ toggleDone(t); });
+
+    var main = el('div', 'main');
+    var body = el('button', 'body'); body.type = 'button'; body.setAttribute('aria-label', '編集：' + t.text);
+    body.appendChild(el('div', 'text', t.text));
+    var meta = el('div', 'meta');
+    var sup = t.supplies || [];
+    var readyN = sup.filter(function(x){ return x.ok; }).length;
+    if (t.done) meta.appendChild(el('span', 'tagk', '完了 ' + fmt(t.doneDate)));
+    else meta.appendChild(el('span', 'tagk', t.due ? fmt(t.due) + '・' + info.label : info.label));
+    if (sup.length) meta.appendChild(el('span', 'tago ' + (readyN === sup.length ? 'good' : 'warn'), readyN === sup.length ? '物資OK' : '物資まだ' + (sup.length - readyN)));
+    meta.appendChild(el('span', null, fmt(t.date) + (t.name ? '・' + t.name : '')));
+    body.appendChild(meta);
+    body.addEventListener('click', function(){ openEdit(t); });
+    main.appendChild(body);
+
+    if (sup.length){
+      var box = el('div', 'supplies');
+      box.appendChild(el('div', 'sup-head', '必要物資　' + readyN + ' / ' + sup.length));
+      var ul = el('ul', 'sup-list');
+      sup.forEach(function(x, i){
+        var li = el('li');
+        var b = el('button', 'sup-row' + (x.ok ? ' ok' : '')); b.type = 'button';
+        b.setAttribute('aria-pressed', x.ok ? 'true' : 'false');
+        b.setAttribute('aria-label', x.n + '：' + (x.ok ? '準備OK' : 'まだ'));
+        var bx = el('span', 'box'); bx.appendChild(icon('tick')); b.appendChild(bx);
+        b.appendChild(el('span', 'sup-name', x.n));
+        b.appendChild(el('span', 'sup-st', x.ok ? '準備OK' : 'まだ'));
+        b.addEventListener('click', function(){ toggleSupply(t, i); });
+        li.appendChild(b); ul.appendChild(li);
+      });
+      box.appendChild(ul); main.appendChild(box);
+    }
+    row.appendChild(chk); row.appendChild(main);
+    return row;
+  }
+
+  function section(title, color, arr){
+    var frag = document.createDocumentFragment();
+    var h = el('div', 'sec-title');
+    var bd = el('span', 'badge', title); bd.style.setProperty('--k', color);
+    h.appendChild(bd); h.appendChild(document.createTextNode(arr.length + '件'));
+    frag.appendChild(h);
+    var box = el('div', 'items'); arr.forEach(function(t){ box.appendChild(card(t)); });
+    frag.appendChild(box);
+    return frag;
+  }
+
+  function setHero(color, iconName, head, lead){
+    document.documentElement.style.setProperty('--c', color);
+    var ic = $('hero-ic'); ic.setAttribute('data-i', iconName); ic.innerHTML = ICONS[iconName];
+    $('hero-head').textContent = head; $('hero-lead').textContent = lead;
+  }
+
+  function render(){
+    var open = state.items.filter(function(t){ return !t.done; }).sort(sortOpen);
+    var done = state.items.filter(function(t){ return t.done; }).sort(sortDone);
+    var late = open.filter(function(t){ return dueInfo(t).cls === 'late'; });
+    var tod = open.filter(function(t){ return dueInfo(t).cls === 'today'; });
+    var supNg = 0; open.forEach(function(t){ (t.supplies || []).forEach(function(x){ if (!x.ok) supNg++; }); });
+
+    // ヘッダーのピルとホームの顔
+    if (!state.loaded){
+      document.body.setAttribute('data-loading', state.error ? '0' : '1');
+      setHero('var(--c-gray)', state.error ? 'alert' : 'hourglass', state.error ? 'つながりません' : '読み込み中', state.error ? '電波の良いところで「更新」を押してください' : 'リストを取ってきています');
+      $('pill-t').textContent = state.error ? '未接続' : '読み込み中';
+      $('counts').hidden = true;
+    } else {
+      document.body.setAttribute('data-loading', '0');
+      var d = new Date(), today = (d.getMonth()+1) + '月' + d.getDate() + '日(' + WD[d.getDay()] + ')';
+      if (late.length) setHero('var(--c-red)', 'alert', '期限切れ ' + late.length + '件', today + '・早めに片づけましょう');
+      else if (tod.length) setHero('var(--c-orange)', 'clock', '今日まで ' + tod.length + '件', today + '・今日中に終わらせたいもの');
+      else if (open.length) setHero('var(--c-green)', 'clip', '順調です', today + '・期限切れはありません');
+      else setHero('var(--c-green)', 'clip', 'やることなし', today + '・下の＋から登録できます');
+      $('pill-t').textContent = '未完了 ' + open.length;
+      var cs = $('counts'); cs.innerHTML = '';
+      [['期限切れ', late.length, 'red'], ['今日まで', tod.length, 'orange'], ['未完了', open.length, ''], ['物資まだ', supNg, supNg ? 'orange' : '']].forEach(function(c){
+        var s = el('span', 'count' + (c[1] && c[2] ? ' ' + c[2] : ''), c[0]); s.appendChild(el('b', null, String(c[1]))); cs.appendChild(s);
+      });
+      cs.hidden = false;
+    }
+    var nl = $('n-late'); nl.textContent = late.length; nl.hidden = !(state.loaded && late.length);
+    document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === state.tab ? 'true' : 'false'); });
+
+    var list = $('list'); list.innerHTML = '';
+    if (!state.loaded) return;
+    if (state.error) list.appendChild(el('div', 'msg-error', state.error));
+
+    var buckets = [['期限切れ', COLOR.late, []], ['今日まで', COLOR.today, []], ['1週間以内', COLOR.soon, []], ['それ以降', COLOR.later, []], ['目標日なし', COLOR.none, []]];
+    open.forEach(function(t){
+      var info = dueInfo(t);
+      var i = info.cls === 'late' ? 0 : info.cls === 'today' ? 1 : info.cls === 'none' ? 4 : (info.n <= 7 ? 2 : 3);
+      buckets[i][2].push(t);
+    });
+    var shown = 0;
+    if (state.tab !== 'done') buckets.forEach(function(b){ if (b[2].length){ list.appendChild(section(b[0], b[1], b[2])); shown += b[2].length; } });
+    if (state.tab !== 'open' && done.length){ list.appendChild(section('完了', COLOR.done, done)); shown += done.length; }
+    if (!shown){
+      var e = el('div', 'empty');
+      if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode('左の丸をタップすると完了になります')); }
+      else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('下の「＋ 追加」から登録できます')); }
+      list.appendChild(e);
+    }
+  }
+
+  /* ---------- データ操作 ---------- */
+  function load(silent){
+    setBusy(true);
+    return apiGet().then(function(items){
+      state.items = items; state.loaded = true; state.error = '';
+    }).catch(function(){
+      state.error = '読み込めませんでした。電波の良いところで「更新」を押してください。';
+      if (!silent && state.loaded) toast('読み込めませんでした');
+    }).then(function(){ setBusy(false); if (!$('scr-list').hidden) render(); });
+  }
+  function toggleDone(t){
+    var target = !t.done; t.done = target; t.doneDate = target ? ymd(new Date()) : '';
+    render(); setBusy(true);
+    apiPost('apiSetDone', t.id, target).then(function(items){
+      state.items = items; render(); toast(target ? '完了にしました' : '未完了に戻しました');
+    }).catch(function(err){ t.done = !target; render(); toast(msgOf(err, '更新できませんでした')); })
+      .then(function(){ setBusy(false); });
+  }
+  function toggleSupply(t, i){
+    var x = t.supplies && t.supplies[i]; if (!x) return;
+    var target = !x.ok; x.ok = target; render(); setBusy(true);
+    apiPost('apiSetSupply', t.id, i, target).then(function(items){
+      state.items = items; render(); toast(x.n + '：' + (target ? '準備OK' : 'まだ'));
+    }).catch(function(err){ x.ok = !target; render(); toast(msgOf(err, '更新できませんでした')); })
+      .then(function(){ setBusy(false); });
+  }
+
+  /* ---------- 入力画面 ---------- */
+  var formSup = [];
+  function renderSupEdit(){
+    var ul = $('sup-edit'); ul.innerHTML = '';
+    formSup.forEach(function(x, i){
+      var li = el('li'), lb = el('label'), cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!x.ok; cb.id = 'f-sup-ok-' + i;
+      cb.addEventListener('change', function(){ x.ok = cb.checked; });
+      lb.appendChild(cb); lb.appendChild(document.createTextNode('準備OK')); li.appendChild(lb);
+      li.appendChild(el('span', 'nm', x.n));
+      var rm = el('button', 'rm', '×'); rm.type = 'button'; rm.setAttribute('aria-label', x.n + ' を外す');
+      rm.addEventListener('click', function(){ formSup.splice(i, 1); renderSupEdit(); });
+      li.appendChild(rm); ul.appendChild(li);
+    });
+    $('sup-hint').hidden = formSup.length > 0;
+  }
+  function takeSupInput(){
+    var v = $('f-sup').value.replace(/\s+/g, ' ').trim();
+    if (!v || formSup.length >= 30) return false;
+    formSup.push({ n: v.slice(0, 60), ok: false }); $('f-sup').value = ''; renderSupEdit(); return true;
+  }
+  function showErr(msg){ var e = $('f-err'); e.textContent = msg; e.hidden = !msg; }
+
+  function openEdit(t){
+    state.editing = t || null;
+    $('edit-title').textContent = t ? 'やることを編集' : 'やることを追加';
+    $('edit-sub').textContent = t ? '直したら「保存する」' : '内容と目標日を入れて「保存する」';
+    $('edit-pill').textContent = t ? '編集' : '追加';
+    $('f-text').value = t ? t.text : '';
+    $('f-date').value = t && t.date ? t.date : ymd(new Date());
+    $('f-due').value = t ? (t.due || '') : '';
+    $('f-name').value = t ? t.name : getLS(KEY.name);
+    formSup = t && t.supplies ? t.supplies.map(function(x){ return { n: x.n, ok: !!x.ok }; }) : [];
+    $('f-sup').value = ''; renderSupEdit(); showErr('');
+    $('del').hidden = !t;
+    $('save').disabled = false; $('save').textContent = '保存する';
+    show('scr-edit');
+  }
+  function backToList(){ state.editing = null; show('scr-list'); render(); }
+
+  function submit(ev){
+    ev.preventDefault();
+    var text = $('f-text').value.trim();
+    if (!text){ showErr('内容を入力してください'); $('f-text').focus(); return; }
+    takeSupInput();
+    var name = $('f-name').value.trim(); if (name) setLS(KEY.name, name);
+    var payload = { text: text, date: $('f-date').value || ymd(new Date()), due: $('f-due').value || '', name: name,
+      supplies: formSup.map(function(x){ return { n: x.n, ok: !!x.ok }; }) };
+    var editing = state.editing;
+    $('save').disabled = true; $('save').textContent = '保存中…'; showErr(''); setBusy(true);
+    (editing ? apiPost('apiUpdate', editing.id, payload) : apiPost('apiAdd', payload)).then(function(items){
+      state.items = items; state.loaded = true; state.error = '';
+      if (!editing && state.tab === 'done'){ state.tab = 'open'; setLS(KEY.tab, 'open'); }
+      backToList(); toast(editing ? '保存しました' : '登録しました');
+    }).catch(function(err){
+      $('save').disabled = false; $('save').textContent = '保存する';
+      showErr(msgOf(err, '保存できませんでした。電波を確認して、もう一度「保存する」を押してください'));
+    }).then(function(){ setBusy(false); });
+  }
+  function askDelete(){ if (!state.editing) return; $('del-text').textContent = state.editing.text; show('scr-del'); }
+  function doDelete(){
+    var t = state.editing; if (!t) return;
+    $('del-yes').disabled = true; $('del-yes').textContent = '削除中…'; setBusy(true);
+    apiPost('apiDelete', t.id).then(function(items){ state.items = items; backToList(); toast('削除しました'); })
+      .catch(function(err){ toast(msgOf(err, '削除できませんでした')); show('scr-edit'); })
+      .then(function(){ $('del-yes').disabled = false; $('del-yes').textContent = '削除する'; setBusy(false); });
+  }
+
+  /* ---------- 文字サイズ（−／＋） ---------- */
+  function applyFs(v){
+    if (FS.indexOf(v) < 0) v = '中';
+    document.documentElement.setAttribute('data-fontscale', v);
+    document.querySelectorAll('.fsBtn').forEach(function(b){
+      var i = FS.indexOf(v) + (+b.dataset.fs); b.disabled = i < 0 || i >= FS.length;
+    });
+    return v;
+  }
+
+  /* ---------- イベント ---------- */
+  document.querySelectorAll('.tab[data-tab]').forEach(function(b){
+    b.addEventListener('click', function(){ state.tab = b.dataset.tab; setLS(KEY.tab, state.tab); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  });
+  $('add').addEventListener('click', function(){ openEdit(null); });
+  $('reload').addEventListener('click', function(){ load(false); });
+  $('scr-edit').addEventListener('submit', submit);
+  $('back').addEventListener('click', backToList);
+  $('cancel').addEventListener('click', backToList);
+  $('del').addEventListener('click', askDelete);
+  $('del-yes').addEventListener('click', doDelete);
+  $('del-no').addEventListener('click', function(){ show('scr-edit'); });
+  $('del-back').addEventListener('click', function(){ show('scr-edit'); });
+  $('quick').addEventListener('click', function(e){ var q = e.target && e.target.getAttribute('data-q'); if (q != null) $('f-due').value = quickDate(q); });
+  $('sup-add').addEventListener('click', function(){ takeSupInput(); $('f-sup').focus(); });
+  $('f-sup').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229){ e.preventDefault(); takeSupInput(); } });
+  $('f-text').addEventListener('input', function(){ showErr(''); });
+  document.querySelectorAll('.fsBtn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var cur = document.documentElement.getAttribute('data-fontscale');
+      var i = Math.max(0, Math.min(FS.length - 1, FS.indexOf(cur) + (+b.dataset.fs)));
+      setLS(KEY.fs, applyFs(FS[i]));
+    });
+  });
+
+  // 画面に戻ってきた時と、一覧を開いている間は1分ごとに最新化
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) load(true); });
+  setInterval(function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) load(true); }, 60000);
+
+  /* ---------- 起動 ---------- */
+  paintIcons();
+  $('ver').textContent = 'SHINTAKU ToDo ' + APP_VERSION;
+  applyFs(getLS(KEY.fs) || '中');
+  var savedTab = getLS(KEY.tab);
+  if (savedTab === 'open' || savedTab === 'done' || savedTab === 'all') state.tab = savedTab;
+  render();
+  load(false);
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>
+</body>
+</html>
