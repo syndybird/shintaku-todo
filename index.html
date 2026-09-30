@@ -167,6 +167,7 @@
   .tagk { display: inline-block; font-size: 12px; font-weight: 800; color: #fff; padding: 3px 9px; border-radius: 8px; background: var(--k, var(--c-gray)); }
   .tago { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 8px; border: 1.5px solid var(--line); color: var(--ink-sub); }
   .tago.warn { color: var(--c-orange); border-color: color-mix(in srgb, var(--c-orange) 35%, #fff); }
+  .tago.money { color: var(--ink); }   /* v1.27：暫定予算 */
   .tago.good { color: var(--c-green); border-color: color-mix(in srgb, var(--c-green) 35%, #fff); }
 
   .supplies { border-top: 1px dashed var(--line); padding-top: 6px; }
@@ -232,6 +233,9 @@
   .quick button { font-size: 13px; font-weight: 800; padding: 7px 12px; border-radius: 999px; color: var(--ink); background: #fff; border: 1.5px solid var(--line); }
   .quick button:active { background: var(--bg); }
   .sup-add { display: flex; gap: 8px; }
+  .yen { display: flex; align-items: center; gap: 8px; }
+  .yen .inp { flex: 1; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .yen span { flex: none; font-size: 15px; font-weight: 800; }
   .sup-add .inp { flex: 1; min-width: 0; }
   .sup-add button { flex: none; padding: 0 16px; font-size: 15px; font-weight: 800; color: #fff; background: var(--ink); border: 0; border-radius: 14px; }
   .sup-edit { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
@@ -528,6 +532,13 @@
           <p class="hint" id="sup-hint">1品ずつ入れて「追加」。準備できたものはチェック</p>
         </div>
         <div class="field">
+          <label for="f-budget">暫定予算<small>だいたいの金額・任意</small></label>
+          <div class="yen">
+            <input class="inp" type="text" id="f-budget" inputmode="numeric" maxlength="13" placeholder="例：15,000" enterkeyhint="done" autocomplete="off">
+            <span>円</span>
+          </div>
+        </div>
+        <div class="field">
           <span class="lbl">優先度<small>★が多いほど先にやる</small></span>
           <div class="pick-stars" id="f-stars">
             <button type="button" class="star" data-p="1" aria-label="優先度1"><span class="ic" data-i="star"></span></button>
@@ -673,7 +684,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.26';
+  var APP_VERSION = 'v1.27';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -851,6 +862,7 @@
     if (t.done) meta.appendChild(el('span', 'tagk', '完了 ' + fmt(t.doneDate)));
     else meta.appendChild(el('span', 'tagk', t.due ? fmt(t.due) + '・' + info.label : info.label));
     if (sup.length) meta.appendChild(el('span', 'tago ' + (readyN === sup.length ? 'good' : 'warn'), readyN === sup.length ? '物資OK' : '物資まだ' + (sup.length - readyN)));
+    if (hasBudget(t)) meta.appendChild(el('span', 'tago money', '予算 ' + yenFmt(t.budget) + '円'));
     meta.appendChild(el('span', null, fmt(t.date) + (t.name ? '・' + t.name : '')));
     body.appendChild(meta);
     body.addEventListener('click', function(){ openEdit(t); });
@@ -1022,6 +1034,8 @@
       document.body.setAttribute('data-loading', '0');
       var d = new Date(), today = (d.getMonth()+1) + '月' + d.getDate() + '日(' + WD[d.getDay()] + ')';
       var sum = '未完了' + open.length + (late.length ? '・期限切れ' + late.length : '') + (tod.length ? '・今日まで' + tod.length : '') + (supNg ? '・物資まだ' + supNg : '');
+      var bud = open.filter(hasBudget);
+      if (bud.length) sum += '・予算計 ' + yenFmt(bud.reduce(function(a, t){ return a + Number(t.budget); }, 0)) + '円';
       if (late.length) setHero('var(--c-red)', 'alert', '期限切れ ' + late.length + '件', today + '・' + sum);
       else if (tod.length) setHero('var(--c-orange)', 'clock', '今日まで ' + tod.length + '件', today + '・' + sum);
       else if (open.length) setHero('var(--c-green)', 'clip', '順調です', today + '・' + sum);
@@ -1326,11 +1340,19 @@
     $('f-name-note').textContent = nameLocked ? '登録済みのため変更できません' : (t ? '空欄なので入れられます' : '任意・次から自動で入ります');
     formSup = t && t.supplies ? t.supplies.map(function(x){ return { n: x.n, ok: !!x.ok }; }) : [];
     setFormStars(t ? (t.priority || 0) : 0);
+    $('f-budget').value = t && hasBudget(t) ? yenFmt(t.budget) : '';
     $('f-sup').value = ''; renderSupEdit(); showErr('');
     $('del').hidden = !t;
     $('save').disabled = false; $('save').textContent = '保存する';
     show('scr-edit');
   }
+  // v1.27：暫定予算（円）
+  function budgetDigits(v){
+    var d = String(v || '').replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+    return d.slice(0, 9);
+  }
+  function hasBudget(t){ return t.budget !== '' && t.budget != null && !isNaN(Number(t.budget)); }
+  function yenFmt(n){ return Number(n).toLocaleString('ja-JP'); }
   function backToList(){ state.editing = null; show('scr-list'); render(); }
 
   function submit(ev){
@@ -1340,7 +1362,8 @@
     takeSupInput();
     var name = $('f-name').value.trim(); if (name && !$('f-name').readOnly) setLS(KEY.name, name);
     var payload = { text: text, date: $('f-date').value || ymd(new Date()), due: $('f-due').value || '', name: name,
-      supplies: formSup.map(function(x){ return { n: x.n, ok: !!x.ok }; }), priority: formStars };
+      supplies: formSup.map(function(x){ return { n: x.n, ok: !!x.ok }; }), priority: formStars,
+      budget: budgetDigits($('f-budget').value) };
     var editing = state.editing;
     $('save').disabled = true; $('save').textContent = '保存中…'; showErr(''); setBusy(true);
     (editing ? apiPost('apiUpdate', editing.id, payload) : apiPost('apiAdd', payload)).then(function(items){
@@ -1504,6 +1527,9 @@
   $('sup-add').addEventListener('click', function(){ takeSupInput(); $('f-sup').focus(); });
   $('f-sup').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229){ e.preventDefault(); takeSupInput(); } });
   $('f-text').addEventListener('input', function(){ showErr(''); });
+  // 暫定予算：打つそばから 3桁ごとに「,」を付ける
+  $('f-budget').addEventListener('input', function(){ var d = budgetDigits(this.value); this.value = d ? yenFmt(d) : ''; });
+  $('f-budget').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); this.blur(); } });
   document.querySelectorAll('.fsBtn').forEach(function(b){
     b.addEventListener('click', function(){
       var cur = document.documentElement.getAttribute('data-fontscale');
