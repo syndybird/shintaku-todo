@@ -367,15 +367,38 @@
     top: calc(env(safe-area-inset-top, 0px) + 8px);
     background: rgba(255, 255, 255, .25);
     -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
-    border-radius: 24px; padding: 10px 10px 10px;
+    border-radius: 24px; padding: 10px 10px 30px;
     box-shadow: 0 8px 28px rgba(31,36,33,.18);
   }
+  /* v1.26：下部を丸く膨らませて「閉じる」「さがす」の丸ボタンを置く */
+  .search .sfoot {
+    position: absolute; left: 50%; bottom: -30px; width: 132px; height: 60px; margin-left: -66px;
+    border-radius: 30px; pointer-events: none;
+    background: rgba(255, 255, 255, .25);
+    -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%);
+    clip-path: inset(30px 0 0 0);
+  }
+  .search .sbtns {
+    position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%);
+    display: flex; gap: 14px;
+  }
+  .search .sbtn {
+    width: 48px; height: 48px; border-radius: 50%; border: none; padding: 0;
+    display: grid; place-items: center; color: #fff; box-shadow: 0 5px 14px rgba(31,36,33,.22);
+  }
+  .search .sbtn .ic { width: 24px; height: 24px; }
+  .search .sbtn.close { background: var(--c-gray); }
+  .search .sbtn.go { background: var(--ink); }
+  .search .sbtn:active { transform: scale(.94); }
+  /* さがした言葉にあう項目を一瞬光らせる */
+  .item.hit { animation: hit 1.4s ease; }
+  @keyframes hit { 0%, 40% { box-shadow: 0 0 0 3px var(--c-orange), 0 8px 26px rgba(31,36,33,.08); } 100% { box-shadow: 0 0 0 0 transparent; } }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .search { background: rgba(255, 255, 255, .92); }
+    .search, .search .sfoot { background: rgba(255, 255, 255, .92); }
   }
   /* 開いている間は、一覧を検索欄の下から始める */
-  body.searching #scroller { padding-top: calc(var(--sh, 0px) + 8px); }
-  body.searching .ptr { top: calc(env(safe-area-inset-top, 0px) + var(--sh, 0px) + 14px); }
+  body.searching #scroller { padding-top: calc(var(--sh, 0px) + 34px); }
+  body.searching .ptr { top: calc(env(safe-area-inset-top, 0px) + var(--sh, 0px) + 40px); }
   .sbox { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 14px; padding: 0 6px 0 12px; background: #fff; }
   .sbox:focus-within { border-color: var(--ink); }
   .sbox .ic { width: 20px; height: 20px; color: var(--ink-sub); flex: none; }
@@ -618,6 +641,11 @@
   </div>
   <div class="who" id="who" role="group" aria-label="よく使われている言葉"></div>
   <p class="sres" id="sres" aria-live="polite"></p>
+  <span class="sfoot" aria-hidden="true"></span>
+  <div class="sbtns">
+    <button type="button" class="sbtn close" id="s-close" aria-label="閉じる"><span class="ic" data-i="x"></span></button>
+    <button type="button" class="sbtn go" id="s-go" aria-label="さがす"><span class="ic" data-i="search"></span></button>
+  </div>
 </div>
 
 <!-- ===== 下バー ===== -->
@@ -645,7 +673,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.25';
+  var APP_VERSION = 'v1.26';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -663,6 +691,7 @@
     search:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>',
     star:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>',
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     up:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>',
     back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
@@ -895,7 +924,7 @@
   }
 
   /* ---------- さがす（v1.20） ---------- */
-  function filtering(){ return state.searchOpen && (!!state.q.trim() || !!state.who); }
+  function filtering(){ return !!state.q.trim() || !!state.who; }   // v1.26：欄を閉じても絞り込みは残す
   function matchTodo(t){
     if (state.who && (t.name || '') !== state.who) return false;
     var words = state.q.trim().toLowerCase().split(/[\s　、,]+/).filter(Boolean);
@@ -1409,13 +1438,33 @@
     state.sort = b.dataset.sort; setLS(KEY.sort, state.sort); render();
   });
   // v1.20：「さがす」を押すと検索欄を開く／もう一度押すと閉じて絞り込みを解除
+  function closeSearch(){   // 閉じる：欄を閉じて、絞り込みも解除
+    state.searchOpen = false; state.q = ''; state.who = ''; $('q').value = ''; $('q').blur(); render();
+  }
+  function goSearch(){      // さがす：欄を閉じて、最初に見つかった項目まで飛ぶ
+    if (!filtering()){ toast('さがす言葉を入れてください'); $('q').focus(); return; }
+    render();
+    var sc = $('scroller');
+    var first = Array.prototype.filter.call($('scr-list').querySelectorAll('.item'), function(e){ return e.offsetParent; })[0];
+    if (!first){ toast('見つかりませんでした'); return; }
+    state.searchOpen = false; $('q').blur(); render();
+    first = Array.prototype.filter.call($('scr-list').querySelectorAll('.item'), function(e){ return e.offsetParent; })[0];
+    var y = sc.scrollTop + first.getBoundingClientRect().top - sc.getBoundingClientRect().top - 60;
+    sc.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    Array.prototype.forEach.call($('scr-list').querySelectorAll('.item'), function(e){
+      e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit');
+      setTimeout(function(){ e.classList.remove('hit'); }, 1500);
+    });
+  }
+  // v1.20：「さがす」タブで検索欄を開く／開いているときに押すと閉じる（絞り込みも解除）
   $('search-tab').addEventListener('click', function(){
     if (curScreen() !== 'scr-list'){ pushNav(); state.editing = null; show('scr-list'); state.searchOpen = false; }
-    state.searchOpen = !state.searchOpen;
-    if (!state.searchOpen){ state.q = ''; state.who = ''; $('q').value = ''; }
-    render();
-    if (state.searchOpen){ $('scroller').scrollTop = 0; setTimeout(function(){ $('q').focus(); }, 50); }
+    if (state.searchOpen){ closeSearch(); return; }
+    state.searchOpen = true; render();
+    $('scroller').scrollTop = 0; setTimeout(function(){ $('q').focus(); }, 50);
   });
+  $('s-close').addEventListener('click', closeSearch);
+  $('s-go').addEventListener('click', goSearch);
   // v1.22：スクロールしたら右下に「いちばん上へ」ボタンを出す
   (function(){
     var sc = $('scroller'), btn = $('top-btn'), on = false;
@@ -1428,7 +1477,7 @@
     btn.addEventListener('click', function(){ sc.scrollTo({ top: 0, behavior: 'smooth' }); });
   })();
   $('q').addEventListener('input', function(){ state.q = $('q').value; render(); });
-  $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); $('q').blur(); } });
+  $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); goSearch(); } });
   $('q-clear').addEventListener('click', function(){ state.q = ''; $('q').value = ''; render(); $('q').focus(); });
   $('scr-cow').addEventListener('submit', submitCow);
 
