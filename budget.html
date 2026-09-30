@@ -59,7 +59,8 @@
   /* 計画ボード */
   .board-card { margin-bottom: 14px; }
   .board-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .board-head h2 { margin: 0; }
+  .board-head h2 { margin: 0; flex-wrap: nowrap; }
+  .board-head h2 > small { flex: none; }
   .board-head .hint { font-size: 12.5px; color: var(--ink-sub); flex: 1; min-width: 220px; }
   .seg { display: inline-flex; background: var(--bg); border-radius: 11px; padding: 3px; }
   .seg button { border: 0; background: transparent; font-size: 12.5px; font-weight: 800; padding: 6px 11px; border-radius: 9px; color: var(--ink-sub); }
@@ -99,6 +100,19 @@
   .mv button:hover, .mv button:focus-visible { background: var(--bg); outline: none; }
   .mv button[aria-current="true"] { color: var(--ink-sub); }
   .mv button[aria-current="true"]::after { content: '（いまここ）'; font-size: 11px; }
+  /* 目標日を月末にそろえる */
+  .eom { margin-top: 8px; width: 100%; border: 1.5px dashed #cfcec5; background: #fff; border-radius: 10px; font-size: 12px; font-weight: 800; padding: 6px 8px; color: var(--ink-2); }
+  .eom:hover { border-color: var(--ink); color: var(--ink); }
+  .cf { position: fixed; z-index: 60; background: #fff; border-radius: 16px; box-shadow: 0 14px 38px rgba(31,36,33,.25); padding: 16px; width: min(360px, calc(100vw - 24px)); }
+  .cf h3 { font-size: 15px; font-weight: 900; margin-bottom: 4px; }
+  .cf p { font-size: 12.5px; color: var(--ink-sub); margin-bottom: 10px; line-height: 1.5; }
+  .cf ul { list-style: none; max-height: 220px; overflow-y: auto; margin-bottom: 12px; border-top: 1px solid var(--grid); }
+  .cf li { font-size: 13px; padding: 7px 2px; border-bottom: 1px solid var(--grid); display: flex; gap: 8px; }
+  .cf li span { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cf li em { font-style: normal; color: var(--ink-sub); white-space: nowrap; font-size: 12px; }
+  .cf .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .cf .row button { height: 38px; padding: 0 16px; border-radius: 11px; font-size: 14px; font-weight: 800; border: 1.5px solid var(--line); background: #fff; }
+  .cf .row .go { background: var(--ink); color: #fff; border-color: var(--ink); }
 
   /* グラフ */
   .charts { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 14px; }
@@ -292,6 +306,14 @@
       t.appendChild(el('span', 'n num', list.length + '件'));
       ch.appendChild(t);
       var s = el('div', 'sum num', yen(sum(list))); s.appendChild(el('small', null, '円')); ch.appendChild(s);
+      if (c.key !== 'none'){
+        var tg = eomTargets(list);
+        if (tg.length){
+          var eb = el('button', 'eom', '目標日を月末にそろえる（' + tg.length + '件）'); eb.type = 'button';
+          eb.addEventListener('click', function(){ confirmEom(tg, eb); });
+          ch.appendChild(eb);
+        }
+      }
       col.appendChild(ch);
       var ls = el('div', 'col-list');
       if (!list.length) ls.appendChild(el('div', 'col-empty', c.key === 'none' ? '月を決めていないものはありません' : 'ここへドラッグ'));
@@ -417,6 +439,52 @@
     document.removeEventListener('pointerup', dragEnd);
     document.removeEventListener('pointercancel', dragCancel);
     drag = null;
+  }
+
+  /* 目標日を月末にそろえる：自分で月に入れたもの（計画月あり）だけ。
+     すでにその月の中に目標日があるものは、本当の期限なので変えない */
+  function monthEnd(key){ var p = key.split('-'); var d = new Date(+p[0], +p[1], 0); return key + '-' + pad(d.getDate()); }
+  function eomTargets(list){
+    var out = [];
+    list.forEach(function(t){
+      if (!t.plan || t.plan === 'none') return;
+      var m = t.plan < CUR ? CUR : t.plan;
+      if (t.due && t.due.slice(0, 7) === m) return;
+      out.push({ t: t, due: monthEnd(m) });
+    });
+    return out;
+  }
+  function confirmEom(tg, anchor){
+    closeMove();
+    var box = el('div', 'cf'); box.setAttribute('role', 'dialog');
+    var ends = {}; tg.forEach(function(x){ ends[x.due] = 1; });
+    var endKeys = Object.keys(ends);
+    box.appendChild(el('h3', null, tg.length + '件の目標日を ' + endKeys.map(fmtDate).join('・') + ' にします'));
+    box.appendChild(el('p', null, 'ToDoアプリの目標日も変わります。もともとこの月の中に目標日があるものは変えません。'));
+    var ul = el('ul');
+    tg.forEach(function(x){ var li = el('li'); li.appendChild(el('span', null, x.t.text)); li.appendChild(el('em', null, (x.t.due ? fmtDate(x.t.due) : 'なし') + ' → ' + fmtDate(x.due))); ul.appendChild(li); });
+    box.appendChild(ul);
+    var row = el('div', 'row');
+    var no = el('button', null, 'やめる'); no.type = 'button'; no.addEventListener('click', closeMove);
+    var go = el('button', 'go', '変更する'); go.type = 'button';
+    go.addEventListener('click', function(){
+      closeMove(); busy(true);
+      var olds = tg.map(function(x){ return [x.t, x.t.due]; });
+      tg.forEach(function(x){ x.t.due = x.due; }); render();
+      apiPost('apiSetDues', tg.map(function(x){ return { id: x.t.id, due: x.due }; }))
+        .then(function(items){ state.items = items; render(); toast(tg.length + '件の目標日を月末にしました'); })
+        .catch(function(e){ olds.forEach(function(o){ o[0].due = o[1]; }); render(); toast(e.message || '保存できませんでした'); })
+        .then(function(){ busy(false); });
+    });
+    row.appendChild(no); row.appendChild(go); box.appendChild(row);
+    document.body.appendChild(box); mvEl = box;
+    var rc = anchor.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+    var x = Math.min(Math.max(8, rc.left), window.innerWidth - w - 8);
+    var y = rc.bottom + 6; if (y + h > window.innerHeight - 8) y = Math.max(8, rc.top - h - 6);
+    box.style.left = x + 'px'; box.style.top = y + 'px';
+    go.focus();
+    box.addEventListener('keydown', function(ev){ if (ev.key === 'Escape'){ closeMove(); anchor.focus(); } });
+    setTimeout(function(){ document.addEventListener('pointerdown', outside, true); }, 0);
   }
 
   /* タップしたときの行き先メニュー */
