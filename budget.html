@@ -380,9 +380,17 @@
   function setPlan(t, colKey){
     var plan = colKey === 'none' ? 'none' : colKey;
     if (colOf(t) === colKey && (t.plan || '') !== '' ) return;
-    var old = t.plan; t.plan = plan; render(); busy(true);
-    apiPost('apiSetPlan', t.id, plan).then(function(items){ state.items = items; render(); toast((colKey === 'none' ? '未定' : mLabel(colKey)) + 'へ移しました'); })
-      .catch(function(e){ t.plan = old; render(); toast(e.message || '保存できませんでした'); })
+    // 目標日が空欄、または前の月の月末（自動で入れた分）なら、新しい月の月末に付け替える（GAS側と同じ決まり）
+    var old = t.plan, oldDue = t.due;
+    var auto = !t.due || (/^\d{4}-\d{2}$/.test(old || '') && t.due === monthEnd(old));
+    if (auto) t.due = plan === 'none' ? '' : monthEnd(plan);
+    t.plan = plan; render(); busy(true);
+    apiPost('apiSetPlan', t.id, plan).then(function(items){
+      state.items = items; render();
+      var nt = items.filter(function(x){ return x.id === t.id; })[0];
+      toast((colKey === 'none' ? '未定' : mLabel(colKey)) + 'へ移しました' + (auto && nt && nt.due ? '（目標日 ' + fmtDate(nt.due) + '）' : ''));
+    })
+      .catch(function(e){ t.plan = old; t.due = oldDue; render(); toast(e.message || '保存できませんでした'); })
       .then(function(){ busy(false); });
   }
 
@@ -502,13 +510,6 @@
       b.addEventListener('click', function(){ closeMove(); if (c.key !== cur) setPlan(t, c.key); });
       m.appendChild(b);
     });
-    if (t.plan){
-      var r = el('button', null, '目標日の月に戻す'); r.type = 'button';
-      r.addEventListener('click', function(){ closeMove(); var old = t.plan; t.plan = ''; render(); busy(true);
-        apiPost('apiSetPlan', t.id, '').then(function(items){ state.items = items; render(); toast('目標日の月に戻しました'); })
-          .catch(function(e){ t.plan = old; render(); toast(e.message || '保存できませんでした'); }).then(function(){ busy(false); }); });
-      m.appendChild(r);
-    }
     document.body.appendChild(m); mvEl = m;
     var rc = anchor.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
     var x = Math.min(Math.max(8, rc.left), window.innerWidth - w - 8);
