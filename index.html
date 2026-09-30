@@ -168,6 +168,17 @@
   .tago { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 8px; border: 1.5px solid var(--line); color: var(--ink-sub); }
   .tago.warn { color: var(--c-orange); border-color: color-mix(in srgb, var(--c-orange) 35%, #fff); }
   .tago.money { color: var(--ink); }   /* v1.27：暫定予算 */
+  /* v1.29：一覧から暫定予算をその場で直す */
+  .bud { margin-top: 8px; }
+  .bud-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; padding: 5px 10px; border-radius: 10px;
+    border: 1.5px dashed color-mix(in srgb, var(--ink) 25%, #fff); background: #fff; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .bud-btn.zero { color: var(--ink-sub); }
+  .bud-btn .ic { width: 14px; height: 14px; color: var(--ink-sub); }
+  .bud-edit { display: flex; align-items: center; gap: 6px; }
+  .bud-edit .lbl2 { flex: none; font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .bud-edit input { flex: 1 1 auto; min-width: 0; width: 100%; max-width: 140px; font-size: 16px; font-weight: 800; text-align: right; padding: 7px 10px; border: 1.5px solid var(--ink); border-radius: 10px; background: #fff; outline: none; font-variant-numeric: tabular-nums; }
+  .bud-edit .ok { flex: none; width: 36px; height: 36px; border-radius: 50%; border: none; padding: 0; display: grid; place-items: center; color: #fff; background: var(--ink); }
+  .bud-edit .ok .ic { width: 20px; height: 20px; }
   .tago.good { color: var(--c-green); border-color: color-mix(in srgb, var(--c-green) 35%, #fff); }
 
   .supplies { border-top: 1px dashed var(--line); padding-top: 6px; }
@@ -684,7 +695,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.28';
+  var APP_VERSION = 'v1.29';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -703,6 +714,7 @@
     star:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>',
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
     x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    pen:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
     up:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>',
     back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
@@ -721,7 +733,7 @@
   var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale', sort: 'shintaku_todo_sort' };
   var COLOR = { late: 'var(--c-red)', today: 'var(--c-orange)', soon: 'var(--c-green)', later: 'var(--c-green)', none: 'var(--c-gray)', done: 'var(--c-blue)' };
   var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null,
-                rems: [], remLoaded: false, remError: '', supOpen: {}, sort: 'star', searchOpen: false, q: '', who: '' };
+                rems: [], remLoaded: false, remError: '', supOpen: {}, sort: 'star', searchOpen: false, q: '', who: '', budEdit: null, budDraft: '' };
 
   /* ---------- サーバー通信 ---------- */
   function apiGet(){ return fetch(API_URL + '?api=list', { cache: 'no-store' }).then(parseRes); }
@@ -862,11 +874,11 @@
     if (t.done) meta.appendChild(el('span', 'tagk', '完了 ' + fmt(t.doneDate)));
     else meta.appendChild(el('span', 'tagk', t.due ? fmt(t.due) + '・' + info.label : info.label));
     if (sup.length) meta.appendChild(el('span', 'tago ' + (readyN === sup.length ? 'good' : 'warn'), readyN === sup.length ? '物資OK' : '物資まだ' + (sup.length - readyN)));
-    if (hasBudget(t)) meta.appendChild(el('span', 'tago money', '予算 ' + yenFmt(t.budget) + '円'));
     meta.appendChild(el('span', null, fmt(t.date) + (t.name ? '・' + t.name : '')));
     body.appendChild(meta);
     body.addEventListener('click', function(){ openEdit(t); });
     main.appendChild(body);
+    main.appendChild(budgetRow(t));
 
     if (sup.length){
       var box = el('div', 'supplies');
@@ -894,6 +906,53 @@
     }
     row.appendChild(chk); row.appendChild(main); row.appendChild(starBox(t));
     return row;
+  }
+
+  /* 暫定予算をその場で直す（v1.29）：金額を押す → 数字を入れて ✓（Enter・欄の外を押しても保存） */
+  function budgetRow(t){
+    var wrap = el('div', 'bud');
+    var cur = hasBudget(t) ? Number(t.budget) : 0;
+    if (state.budEdit !== t.id){
+      var b = el('button', 'bud-btn' + (cur ? '' : ' zero')); b.type = 'button';
+      b.setAttribute('aria-label', '暫定予算 ' + yenFmt(cur) + '円・押して金額を直す');
+      b.appendChild(document.createTextNode('予算 ' + yenFmt(cur) + '円'));
+      b.appendChild(icon('pen'));
+      b.addEventListener('click', function(){
+        state.budEdit = t.id; state.budDraft = cur ? yenFmt(cur) : ''; render();
+        var inp = $('bud-in'); if (inp){ inp.focus(); inp.select(); }
+      });
+      wrap.appendChild(b); return wrap;
+    }
+    var f = el('div', 'bud-edit');
+    f.appendChild(el('span', 'lbl2', '予算'));
+    var inp = el('input'); inp.id = 'bud-in'; inp.type = 'text'; inp.inputMode = 'numeric'; inp.maxLength = 13;
+    inp.autocomplete = 'off'; inp.enterKeyHint = 'done'; inp.placeholder = '0'; inp.value = state.budDraft || '';
+    inp.setAttribute('aria-label', '暫定予算（円）');
+    inp.addEventListener('input', function(){ var d = budgetDigits(inp.value); inp.value = d ? yenFmt(d) : ''; state.budDraft = inp.value; });
+    inp.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); saveBudget(t, inp.value); }
+      else if (e.key === 'Escape'){ state.budEdit = null; render(); }
+    });
+    inp.addEventListener('blur', function(){ if (state.budEdit === t.id) saveBudget(t, inp.value); });
+    f.appendChild(inp);
+    f.appendChild(el('span', 'lbl2', '円'));
+    var ok = el('button', 'ok'); ok.type = 'button'; ok.setAttribute('aria-label', '予算を保存'); ok.appendChild(icon('tick'));
+    ok.addEventListener('mousedown', function(e){ e.preventDefault(); });   // 先に欄の外扱いにならないように
+    ok.addEventListener('click', function(){ saveBudget(t, inp.value); });
+    f.appendChild(ok);
+    wrap.appendChild(f); return wrap;
+  }
+  function saveBudget(t, v){
+    if (state.budEdit !== t.id) return;
+    state.budEdit = null; state.budDraft = '';
+    var n = Number(budgetDigits(v) || 0);
+    var old = t.budget;
+    if ((hasBudget(t) ? Number(t.budget) : 0) === n && hasBudget(t)){ render(); return; }
+    t.budget = n; render(); setBusy(true);
+    apiPost('apiSetBudget', t.id, n).then(function(items){
+      state.items = items; render(); toast('予算 ' + yenFmt(n) + '円にしました');
+    }).catch(function(err){ t.budget = old; render(); toast(msgOf(err, '予算を保存できませんでした')); })
+      .then(function(){ setBusy(false); });
   }
 
   /* 優先度の★（v1.14）：押した数だけ★。同じ★をもう一度押すと0に */
