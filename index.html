@@ -167,7 +167,10 @@
   .tagk { display: inline-block; font-size: 12px; font-weight: 800; color: #fff; padding: 3px 9px; border-radius: 8px; background: var(--k, var(--c-gray)); }
   .tago { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 8px; border: 1.5px solid var(--line); color: var(--ink-sub); }
   .tago.warn { color: var(--c-orange); border-color: color-mix(in srgb, var(--c-orange) 35%, #fff); }
-  .tago.money { color: var(--ink); }   /* v1.27：暫定予算 */
+  .tago.money { color: var(--ink); }
+  /* v1.30：完了から1週間は「やること」の最下段に横線で区切って残す */
+  .done-sep { display: flex; align-items: center; gap: 10px; margin: 26px 2px 4px; font-size: 12px; font-weight: 800; color: var(--ink-sub); }
+  .done-sep::before, .done-sep::after { content: ''; flex: 1; height: 1.5px; background: color-mix(in srgb, var(--ink) 22%, transparent); }   /* v1.27：暫定予算 */
   /* v1.29：一覧から暫定予算をその場で直す */
   .bud { margin-top: 8px; }
   .bud-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; padding: 5px 10px; border-radius: 10px;
@@ -695,7 +698,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.29';
+  var APP_VERSION = 'v1.30';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -977,6 +980,7 @@
       .then(function(){ setBusy(false); });
   }
 
+  function isRecentDone(t){ return !!(t.done && t.doneDate && daysFromToday(t.doneDate) > -7); }   // 完了日から6日後まで
   function section(title, color, arr){
     var frag = document.createDocumentFragment();
     var h = el('div', 'sec-title');
@@ -1045,7 +1049,7 @@
     var who = $('who'); who.innerHTML = '';
     var texts = state.tab === 'cow'
       ? state.rems.map(function(r){ return r.memo || ''; })
-      : state.items.filter(function(t){ return state.tab === 'done' ? t.done : !t.done; })   // v1.28：今見ているタブ（やること＝未完了／完了）の分だけ
+      : state.items.filter(function(t){ return state.tab === 'done' ? (t.done && !isRecentDone(t)) : !t.done; })   // v1.28：今見ているタブ（やること＝未完了／完了）の分だけ
           .map(function(t){ return t.text || ''; });   // v1.25：内容だけから数える（必要物資は入れない）
     var words = topWords(texts, 5);
     who.hidden = !words.length;
@@ -1114,6 +1118,8 @@
     if (state.error) list.appendChild(el('div', 'msg-error', state.error));
 
     if (filtering()){ open = open.filter(matchTodo); done = done.filter(matchTodo); }
+    // v1.30：完了して1週間以内のものは「やること」の下に残し、1週間たったら「完了」タブへ
+    var recent = done.filter(isRecentDone), old = done.filter(function(t){ return !isRecentDone(t); });
     // v1.14：並び順　★順＝★3→★2→★1→★なし（同じ★の中は目標日の近い順→登録順）／登録順＝シートの並び
     var buckets;
     if (state.sort === 'reg'){
@@ -1123,8 +1129,14 @@
       open.slice().sort(sortStar).forEach(function(t){ buckets[3 - (t.priority || 0)][2].push(t); });
     }
     var shown = 0;
-    if (state.tab !== 'done') buckets.forEach(function(b){ if (b[2].length){ list.appendChild(section(b[0], b[1], b[2])); shown += b[2].length; } });
-    if (state.tab === 'done' && done.length){ list.appendChild(section('完了', COLOR.done, done)); shown += done.length; }
+    if (state.tab !== 'done'){
+      buckets.forEach(function(b){ if (b[2].length){ list.appendChild(section(b[0], b[1], b[2])); shown += b[2].length; } });
+      if (recent.length){
+        list.appendChild(el('div', 'done-sep', '完了したもの（1週間たつと「完了」へ）'));
+        list.appendChild(section('完了', COLOR.done, recent)); shown += recent.length;
+      }
+    }
+    if (state.tab === 'done' && old.length){ list.appendChild(section('完了', COLOR.done, old)); shown += old.length; }
     renderSearch(shown);
     if (!shown && filtering()){
       var ef = el('div', 'empty'); ef.appendChild(el('b', null, '見つかりませんでした')); ef.appendChild(document.createTextNode('言葉を変えるか、登録者を「全員」にしてみてください'));
@@ -1132,7 +1144,7 @@
     }
     if (!shown){
       var e = el('div', 'empty');
-      if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode('左の丸をタップすると完了になります')); }
+      if (state.tab === 'done'){ e.appendChild(el('b', null, '完了したものはまだありません')); e.appendChild(document.createTextNode(recent.length ? '完了して1週間たつと、ここに移ります' : '左の丸をタップすると完了になります')); }
       else { e.appendChild(el('b', null, 'やることはありません')); e.appendChild(document.createTextNode('下の緑の＋から登録できます')); }
       list.appendChild(e);
     }
