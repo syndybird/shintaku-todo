@@ -645,7 +645,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.24';
+  var APP_VERSION = 'v1.25';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -945,7 +945,7 @@
     var who = $('who'); who.innerHTML = '';
     var texts = state.tab === 'cow'
       ? state.rems.map(function(r){ return r.memo || ''; })
-      : state.items.map(function(t){ return [t.text].concat((t.supplies || []).map(function(x){ return x.n; })).join(' '); });
+      : state.items.map(function(t){ return t.text || ''; });   // v1.25：内容だけから数える（必要物資は入れない）
     var words = topWords(texts, 5);
     who.hidden = !words.length;
     words.forEach(function(w){
