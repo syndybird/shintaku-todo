@@ -120,6 +120,9 @@
   }
   .sorter .seg button[aria-pressed="true"] { color: #fff; background: var(--ink); border-color: var(--ink); }
   .sorter .seg .ic { width: 18px; height: 18px; }
+  /* v1.31：昇順・降順の切り替え（並び順ごとに覚える） */
+  .sorter .seg button.dir { flex: none; padding: 11px 12px; color: var(--ink); background: #fff; border-color: color-mix(in srgb, var(--ink) 30%, #fff); }
+  .sorter .lbl b { color: var(--ink); font-weight: 800; }
   .stars { flex: none; display: flex; gap: 0; margin: -7px -8px 0 -4px; align-self: flex-start; }
   .star { width: 24px; height: 34px; padding: 0; border: 0; background: transparent; color: #d6d9d6; display: grid; place-items: center; }
   .star .ic { width: 18px; height: 18px; }
@@ -482,10 +485,11 @@
           </div>
         </div>
         <div class="sorter" id="sorter" hidden>
-          <div class="lbl">並び順</div>
+          <div class="lbl">並び順<b id="sort-desc"></b></div>
           <div class="seg" role="group" aria-label="並び順">
-            <button type="button" data-sort="star" aria-pressed="true"><span class="ic" data-i="star"></span>★の多い順</button>
+            <button type="button" data-sort="star" aria-pressed="true"><span class="ic" data-i="star"></span>★順</button>
             <button type="button" data-sort="reg" aria-pressed="false"><span class="ic" data-i="list"></span>登録順</button>
+            <button type="button" class="dir" id="sort-dir"><span class="ic" id="sort-dir-ic" data-i="arrdn"></span><span id="sort-dir-t">降順</span></button>
           </div>
         </div>
       </section>
@@ -698,7 +702,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.30';
+  var APP_VERSION = 'v1.31';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -718,6 +722,8 @@
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
     x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     pen:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
+    arrup:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>',
+    arrdn:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>',
     up:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>',
     back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     move:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
@@ -733,10 +739,10 @@
 
   var WD = ['日','月','火','水','木','金','土'];
   var FS = ['小','中','大'];
-  var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale', sort: 'shintaku_todo_sort' };
+  var KEY = { name: 'shintaku_todo_name', tab: 'shintaku_todo_tab', fs: 'shintaku_todo_fontscale', sort: 'shintaku_todo_sort', dir: 'shintaku_todo_sortdir' };
   var COLOR = { late: 'var(--c-red)', today: 'var(--c-orange)', soon: 'var(--c-green)', later: 'var(--c-green)', none: 'var(--c-gray)', done: 'var(--c-blue)' };
   var state = { items: [], tab: 'open', loaded: false, error: '', busy: 0, editing: null,
-                rems: [], remLoaded: false, remError: '', supOpen: {}, sort: 'star', searchOpen: false, q: '', who: '', budEdit: null, budDraft: '' };
+                rems: [], remLoaded: false, remError: '', supOpen: {}, sort: 'star', dir: { star: 'desc', reg: 'asc' }, searchOpen: false, q: '', who: '', budEdit: null, budDraft: '' };
 
   /* ---------- サーバー通信 ---------- */
   function apiGet(){ return fetch(API_URL + '?api=list', { cache: 'no-store' }).then(parseRes); }
@@ -1107,6 +1113,11 @@
       $('pill-t').textContent = '未完了 ' + open.length;
       $('sorter').hidden = state.tab !== 'open';
       document.querySelectorAll('#sorter [data-sort]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.sort === state.sort ? 'true' : 'false'); });
+      var dsc = state.dir[state.sort] === 'desc';
+      $('sort-dir-t').textContent = dsc ? '降順' : '昇順';
+      var di = $('sort-dir-ic'); di.setAttribute('data-i', dsc ? 'arrdn' : 'arrup'); di.innerHTML = ICONS[dsc ? 'arrdn' : 'arrup'];
+      $('sort-desc').textContent = state.sort === 'reg' ? (dsc ? '：新しい→古い' : '：古い→新しい') : (dsc ? '：★多い→少ない' : '：★少ない→多い');
+      $('sort-dir').setAttribute('aria-label', '並びを' + (dsc ? '昇順' : '降順') + 'にする（今は' + (dsc ? '降順' : '昇順') + '）');
     }
     var nl = $('n-late'); nl.textContent = late.length; nl.hidden = !(state.loaded && late.length);
     document.querySelectorAll('.tab[data-tab]').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === state.tab ? 'true' : 'false'); });
@@ -1122,11 +1133,15 @@
     var recent = done.filter(isRecentDone), old = done.filter(function(t){ return !isRecentDone(t); });
     // v1.14：並び順　★順＝★3→★2→★1→★なし（同じ★の中は目標日の近い順→登録順）／登録順＝シートの並び
     var buckets;
+    // v1.31：昇順・降順　★順＝降順なら★3→★なし／昇順なら★なし→★3、登録順＝昇順なら古い順／降順なら新しい順
+    var dir = state.dir[state.sort];
     if (state.sort === 'reg'){
-      buckets = [['登録順', 'var(--ink-sub)', open.slice().sort(function(a, b){ return a._i - b._i; })]];
+      var sgn = dir === 'desc' ? -1 : 1;
+      buckets = [[dir === 'desc' ? '新しい順' : '古い順', 'var(--ink-sub)', open.slice().sort(function(a, b){ return sgn * (a._i - b._i); })]];
     } else {
       buckets = [['★★★', 'var(--c-star)', []], ['★★', 'var(--c-star)', []], ['★', 'var(--c-star)', []], ['★なし', COLOR.none, []]];
       open.slice().sort(sortStar).forEach(function(t){ buckets[3 - (t.priority || 0)][2].push(t); });
+      if (dir === 'asc') buckets.reverse();
     }
     var shown = 0;
     if (state.tab !== 'done'){
@@ -1529,6 +1544,10 @@
     var n = +b.dataset.p; setFormStars(formStars === n ? 0 : n);
   });
   $('sorter').addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('#sort-dir')){
+      state.dir[state.sort] = state.dir[state.sort] === 'desc' ? 'asc' : 'desc';
+      setLS(KEY.dir, JSON.stringify(state.dir)); render(); return;
+    }
     var b = e.target.closest && e.target.closest('[data-sort]'); if (!b) return;
     state.sort = b.dataset.sort; setLS(KEY.sort, state.sort); render();
   });
@@ -1621,6 +1640,7 @@
   $('ver').textContent = 'SHINTAKU ToDo ' + APP_VERSION;
   applyFs(getLS(KEY.fs) || '中');
   if (getLS(KEY.sort) === 'reg') state.sort = 'reg';
+  try { var sd = JSON.parse(getLS(KEY.dir) || '{}'); ['star', 'reg'].forEach(function(k){ if (sd[k] === 'asc' || sd[k] === 'desc') state.dir[k] = sd[k]; }); } catch (e) {}
   var savedTab = getLS(KEY.tab);
   if (savedTab === 'open' || savedTab === 'done' || savedTab === 'cow') state.tab = savedTab;
   render();
