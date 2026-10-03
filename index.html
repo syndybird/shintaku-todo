@@ -718,7 +718,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.32';
+  var APP_VERSION = 'v1.33';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -1657,6 +1657,8 @@
   // 画面に戻ってきた時と、一覧を開いている間は1分ごとに最新化
   function refresh(){ if (state.tab === 'cow') loadRems(true); else load(true); }
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) refresh(); });
+  // v1.33：Windows/Mac のアプリ版で、もう開いている窓をアイコンから起動したときは、その窓を前に出して最新にする（manifest の launch_handler）
+  if ('launchQueue' in window) window.launchQueue.setConsumer(function(){ if (state.loaded && !$('scr-list').hidden && !state.busy) refresh(); });
   setInterval(function(){ if (document.visibilityState === 'visible' && !$('scr-list').hidden && !state.busy) refresh(); }, 60000);
 
   /* ---------- 起動 ---------- */
