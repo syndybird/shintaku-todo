@@ -121,6 +121,16 @@
   .sorter .seg button[aria-pressed="true"] { color: #fff; background: var(--ink); border-color: var(--ink); }
   .sorter .seg .ic { width: 18px; height: 18px; }
   /* v1.31：昇順・降順の切り替え（並び順ごとに覚える） */
+  .sorter .seg button { white-space: nowrap; min-width: 0; }
+  @media (max-width: 400px) { .sorter .seg { gap: 6px; } .sorter .seg button { font-size: 13.5px; padding: 11px 4px; gap: 4px; } .sorter .seg .ic { width: 16px; height: 16px; } }
+  /* v1.32：並び順の下にいつも出す検索窓（下の「さがす」と同じ言葉で絞り込む） */
+  .qbox { display: flex; align-items: center; gap: 8px; margin-top: 10px; border: 1.5px solid var(--line); border-radius: 14px; padding: 0 6px 0 12px; background: #fff; }
+  .qbox:focus-within { border-color: var(--ink); }
+  .qbox .ic { width: 20px; height: 20px; color: var(--ink-sub); flex: none; }
+  .qbox input { flex: 1; min-width: 0; border: 0; outline: none; font-size: 16px; padding: 12px 0; background: transparent; -webkit-appearance: none; appearance: none; }
+  .qbox input::-webkit-search-cancel-button, .qbox input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+  .qbox .x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-sub); font-size: 20px; }
+  .qres { font-size: 12px; font-weight: 800; color: var(--ink-sub); margin: 6px 4px 0; }
   .sorter .seg button.dir { flex: none; padding: 11px 12px; color: var(--ink); background: #fff; border-color: color-mix(in srgb, var(--ink) 30%, #fff); }
   .sorter .lbl b { color: var(--ink); font-weight: 800; }
   .stars { flex: none; display: flex; gap: 0; margin: -7px -8px 0 -4px; align-self: flex-start; }
@@ -487,10 +497,16 @@
         <div class="sorter" id="sorter" hidden>
           <div class="lbl">並び順<b id="sort-desc"></b></div>
           <div class="seg" role="group" aria-label="並び順">
-            <button type="button" data-sort="star" aria-pressed="true"><span class="ic" data-i="star"></span>★順</button>
+            <button type="button" data-sort="star" aria-pressed="true"><span class="ic" data-i="star"></span>★の多い順</button>
             <button type="button" data-sort="reg" aria-pressed="false"><span class="ic" data-i="list"></span>登録順</button>
             <button type="button" class="dir" id="sort-dir"><span class="ic" id="sort-dir-ic" data-i="arrdn"></span><span id="sort-dir-t">降順</span></button>
           </div>
+          <div class="qbox">
+            <span class="ic" data-i="search"></span>
+            <input type="search" id="q2" placeholder="さがす（内容・物資・登録者）" enterkeyhint="search" autocomplete="off" aria-label="やることをさがす">
+            <button type="button" class="x" id="q2-clear" aria-label="言葉を消す" hidden>×</button>
+          </div>
+          <p class="qres" id="q2-res" hidden></p>
         </div>
       </section>
 
@@ -702,7 +718,7 @@
    * 設定：GAS WebアプリのURL（保存先スプレッドシートにつながる）
    * ============================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz2n8xBrM_uC9JQrgPYrp3CfpMCsQXEX8q-p41xVZDcbHmf9WKXsn1KnmWfskR8ZObg/exec';
-  var APP_VERSION = 'v1.31';
+  var APP_VERSION = 'v1.32';
 
   /* ---------- アイコン（currentColor で色が変わる線画） ---------- */
   var ICONS = {
@@ -1153,8 +1169,13 @@
     }
     if (state.tab === 'done' && old.length){ list.appendChild(section('完了', COLOR.done, old)); shown += old.length; }
     renderSearch(shown);
+    // v1.32：並び順の下の検索窓と、下の「さがす」の欄は同じ言葉を使う
+    if (document.activeElement !== $('q2')) $('q2').value = state.q;
+    if (document.activeElement !== $('q')) $('q').value = state.q;
+    $('q2-clear').hidden = !state.q;
+    var qr = $('q2-res'); qr.hidden = !state.q.trim(); qr.textContent = shown ? shown + '件 見つかりました' : '見つかりませんでした';
     if (!shown && filtering()){
-      var ef = el('div', 'empty'); ef.appendChild(el('b', null, '見つかりませんでした')); ef.appendChild(document.createTextNode('言葉を変えるか、登録者を「全員」にしてみてください'));
+      var ef = el('div', 'empty'); ef.appendChild(el('b', null, '見つかりませんでした')); ef.appendChild(document.createTextNode('言葉を変えてみてください'));
       list.appendChild(ef); return;
     }
     if (!shown){
@@ -1593,6 +1614,9 @@
   $('q').addEventListener('input', function(){ state.q = $('q').value; render(); });
   $('q').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); goSearch(); } });
   $('q-clear').addEventListener('click', function(){ state.q = ''; $('q').value = ''; render(); $('q').focus(); });
+  $('q2').addEventListener('input', function(){ state.q = $('q2').value; render(); });
+  $('q2').addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.isComposing){ e.preventDefault(); $('q2').blur(); } });
+  $('q2-clear').addEventListener('click', function(){ state.q = ''; $('q2').value = ''; render(); $('q2').focus(); });
   $('scr-cow').addEventListener('submit', submitCow);
 
   $('c-at').addEventListener('input', function(){ showPicked(); cErr(''); });
